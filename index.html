@@ -1,0 +1,26 @@
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="icon" type="image/x-icon" href="data/imgs/logo_SignON.png">
+        <style>
+            html, body { width:100%; height:100%; margin:0; padding:0; overflow:hidden; }
+        </style>
+
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script type="importmap">
+			{
+				"imports": {
+					"three": "https://cdn.skypack.dev/three@0.136"
+				}
+			}
+		</script>
+    </head>
+    <body>
+        <div id="loading" class="modal" style="background-color:rgba(51, 51, 51, 0.5); position: absolute; width: 100%; height: 100%; 
+                display: flex; justify-content: center; align-items: center; z-index: 100; color: white; font-size: larger;">
+			<p>Loading avatar, please wait</p>
+		</div>
+
+        <script src="./js/myapp.js" type="module"></script>
+    </body>
+</html>
