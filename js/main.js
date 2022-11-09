@@ -347,32 +347,35 @@ class App {
         if(constraints) {
 
             this.FABRIKSolver.createChain( 
-                [this.bonesIdxs["LeftUpLeg"], this.bonesIdxs["LeftLeg"], this.bonesIdxs["LeftFoot"]], 
+                [this.bonesIdxs["LeftFoot"], this.bonesIdxs["LeftLeg"], this.bonesIdxs["LeftUpLeg"]], 
                 [ 
                     null,    
                     {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, 0.0001 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   
-                    {type: FABRIKSolver.JOINTTYPES.CONE, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.5]}
+                    {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.45]}
                 ], 
                 this.IKTargetLeg // OBject3D (or equivalents) for now. It must be in the scene
-            );  
+            ); 
+
             this.FABRIKSolver.createChain( 
-                [this.bonesIdxs["LeftArm"], this.bonesIdxs["LeftForeArm"], this.bonesIdxs["LeftHand"]], 
+                [ this.bonesIdxs["LeftHand"], this.bonesIdxs["LeftForeArm"], this.bonesIdxs["LeftArm"]], 
                 [ 
                     null,    
-                    {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, 0.0001 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   
-                    {type: FABRIKSolver.JOINTTYPES.CONE, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.5]}
+                    {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, Math.PI*0.5 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   
+                    {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.5]}
                 ], 
                 this.IKTargetArm // OBject3D (or equivalents) for now. It must be in the scene
             );  
+
+
         }
         else {
             this.FABRIKSolver.createChain( 
-                [this.bonesIdxs["LeftUpLeg"], this.bonesIdxs["LeftLeg"], this.bonesIdxs["LeftFoot"]], 
+                [this.bonesIdxs["LeftFoot"], this.bonesIdxs["LeftLeg"], this.bonesIdxs["LeftUpLeg"]], 
                 [ null,    null,   null], 
                 this.IKTargetLeg // OBject3D (or equivalents) for now. It must be in the scene
             );  
             this.FABRIKSolver.createChain( 
-                [this.bonesIdxs["LeftArm"], this.bonesIdxs["LeftForeArm"], this.bonesIdxs["LeftHand"]], 
+                [ this.bonesIdxs["LeftHand"], this.bonesIdxs["LeftForeArm"], this.bonesIdxs["LeftArm"]], 
                 [ null,    null,   null], 
                 this.IKTargetArm // OBject3D (or equivalents) for now. It must be in the scene
             );  
@@ -390,7 +393,9 @@ class App {
         })
 
         let solver = this.gui.addFolder("Solver");
+
         solver.add({solver: this.solver}, 'solver', this.solvers).name("Solver").onChange(v => {
+            
             if(v == "MIX") {
                 this.initFabrik(false);
             }
@@ -398,7 +403,7 @@ class App {
                 this.initFabrik(true);
             }
             this.solver = v;
-
+            
         })
         solver.open();
         for(let i = 0; i < this.chains.length; i++){
@@ -492,16 +497,14 @@ class App {
                     break;
 
                 case "FABRIK":
-                    this.FABRIKSolver.reachTarget( this.IKTargetArm.getWorldPosition(new THREE.Vector3()) );
-                    this.FABRIKSolver.reachTarget( this.IKTargetLeg.getWorldPosition(new THREE.Vector3()) );
+                    this.FABRIKSolver.update();
                     break;
 
                 case "MIX":
-                    break;
-                    this.FABRIKSolver.reachTarget( this.IKTargetArm.getWorldPosition(new THREE.Vector3()) );
-                    this.FABRIKSolver.reachTarget( this.IKTargetLeg.getWorldPosition(new THREE.Vector3()) );
-            
+                    this.FABRIKSolver.update();
+                    
                     this.CCDIKSolver.update();
+                    break;
             }
         }
 

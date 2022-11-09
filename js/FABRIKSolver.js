@@ -59,11 +59,7 @@ class FABRIKSolver {
             this.bindQuats[i] = _quat.clone();
         }
         
-        this.poseLocalMatrices = [];
-        this.poseLocalMatrices.length = numBones;
-
-
-        // generate buffers
+        // generate world position buffers
         this.positions = [];
         this.targetPositions = [];
         this.positions.length = numBones;
@@ -75,27 +71,24 @@ class FABRIKSolver {
 
 
         //--- each entry is comparing itself with its parent
-        // direction of bone parent->child in bind position in parent coords (used in constraints) 
+        // direction of this bone ( parent -> this bone ) in bind position in parent coords (used in constraints) 
         this.boneDirs = [];
-        this.boneDirs.length;
+        this.boneDirs.length = numBones;
         this.boneLengths = [];
-        this.boneLengths.length;
-        
-        this.boneDirs[0] = new THREE.Vector3(0,0,1);
-        this.boneLengths[0] = 0;
+        this.boneLengths.length = numBones;
         
         for( let i = 0; i < numBones; ++i ){
             let parentIdx = this.skeleton.bones.indexOf( this.skeleton.bones[i].parent );
 
             _vec3.setFromMatrixPosition( this.bindLocalMatrices[ i ] ); // child's raw position
+            this.boneLengths[i] = _vec3.length();
 
             if ( parentIdx > -1 ){ // if not root bone
                 _mat3.setFromMatrix4( this.bindLocalMatrices[ parentIdx ] );
                 _vec3.applyMatrix3( _mat3 ); // apply bind rotation
             }
 
-            // now vec3 is the childs bone in bind position in parent space coordinates
-            this.boneLengths[i] = _vec3.length();
+            // now vec3 is the i-th bone in bind position in parent space coordinates
             _vec3.normalize();
             this.boneDirs[i] = _vec3.clone();
         }
@@ -120,7 +113,6 @@ class FABRIKSolver {
                 switch( c.type ){
                     case FABRIKSolver.JOINTTYPES.HINGE: this.__fixHingeConstraints( c ); break;
                     case FABRIKSolver.JOINTTYPES.BALLSOCKET: this.__fixBallSocketConstraints( c ); break;
-                    case FABRIKSolver.JOINTTYPES.CONE: this.__fixConeConstraints( c ); break;
                     default: break;
                 }       
 
@@ -165,122 +157,6 @@ class FABRIKSolver {
             }    
         }
         return angle;
-    }
-
-
-    __fixHingeConstraints ( constraint ){
-        if( constraint.axis ){
-            if ( constraint.axis.isVector3 ){
-                __vec3_1.copy( constraint.axis );
-            }else{
-                __vec3_1.set( constraint.axis[0], constraint.axis[1], constraint.axis[2] );
-            }
-            __vec3_1.normalize();
-            constraint.axis = __vec3_1.clone();
-            
-            // set right axis, to compute angle
-            __vec3_1.set( 0,0,1 );
-            let dot = constraint.axis.dot( __vec3_1 ) > 0.9999; 
-            if ( dot > 0.9999 ){ __vec3_1.set( 1,0,0 ); } // axis is +z, right will be +x
-            if ( dot < -0.9999 ){ __vec3_1.set( -1,0,0 ); } // axis is -z, right will be -x
-            else{ 
-                __vec3_2.set( 0,1,0 ); // up
-                __vec3_1.crossVectors( __vec3_2, constraint.axis );
-                __vec3_1.normalize();
-            }
-            constraint.right = __vec3_1.clone();
-        }
-        if ( constraint.min ){ constraint.min = constraint.min % (Math.PI*2); if ( constraint.min < 0 ){ constraint.min += Math.PI*2; } }
-        if ( constraint.max ){ constraint.max = constraint.max % (Math.PI*2); if ( constraint.max < 0 ){ constraint.max += Math.PI*2; } }
-        return constraint;
-    }
-
-    __hinge( position, constraint ){
-        if ( !constraint.axis ){ return; }
-
-        __vec3_1.copy( constraint.axis );
-
-        let dot = __vec3_1.dot( position );
-        if ( dot > -0.00001 && dot < 0.00001 ){ position.copy(constraint.right); }
-        else{ position.sub( __vec3_1.multiplyScalar( dot ) ); }
-
-        if ( isNaN(constraint.min) || isNaN(constraint.max) ){ return; }
-
-        
-        //TODO:  can be optimized so as to no use any angle
-
-        let angle = constraint.right.angleTo(position);
-        
-        __vec3_2.crossVectors( constraint.right, position );        
-        if (__vec3_2.dot( constraint.axis ) < 0){ angle = -angle + Math.PI*2; }
-        
-        
-        angle = this._constraintAngle( angle, constraint.min, constraint.max );
-        position.copy( constraint.right );
-        position.applyAxisAngle( constraint.axis, angle );
-    }
-
-    __fixBallSocketConstraints ( constraint ){
-        // range [0-180]
-        if ( constraint.min ){ constraint.min = constraint.min % (Math.PI); if ( constraint.min < 0 ){ constraint.min += Math.PI*2; } }
-        if ( constraint.max ){ constraint.max = constraint.max % (Math.PI); if ( constraint.max < 0 ){ constraint.max += Math.PI*2; } }
-    }
-
-    __ballSocket ( position, constraint ){
-    
-        let front = __vec3_1; front.set( 0,0,1 );
-        let dot = front.dot( position );
-
-        position.sub( front.multiplyScalar( dot ) );
-        position.normalize();
-
-        let min = Math.cos( constraint.min ); 
-        let max = Math.cos( constraint.max ); 
-        if ( min > dot ){ dot = min; }
-        if ( max < dot ){ dot = max; }
-
-        let sin = Math.sqrt( 1 - dot * dot ); // 1 = sin^2 + cos^2
-        position.multiplyScalar( sin );
-    }
-
-    __fixConeConstraints ( constraint ){
-        if ( constraint.polar ){ // POLAR range [0-180]
-            constraint.polar[0] = Math.max(0, Math.min( Math.PI, constraint.polar[0] ) );
-            constraint.polar[1] = Math.max( constraint.polar[0], Math.max(0, Math.min( Math.PI, constraint.polar[1] ) ) );
-        }
-        if ( constraint.azimuth ){ 
-            constraint.azimuth[0] = constraint.azimuth[0] % (Math.PI*2); if ( constraint.azimuth[0] < 0 ){ constraint.azimuth[0] += Math.PI*2; } 
-            constraint.azimuth[1] = constraint.azimuth[1] % (Math.PI*2); if ( constraint.azimuth[1] < 0 ){ constraint.azimuth[1] += Math.PI*2; } 
-        }
-    }
-    // spherical coords
-    __cone ( position, constraint ){
-
-        if ( !constraint.polar && !constraint.azimuth ){ return; }
-        let swingPolarAngle = 0;
-        let swingAzimuthAngle = 0; // XY plane where +X is 0º
-        
-        let front = __vec3_1; front.set( 0,0,1 );
-        let right = __vec3_2; right.set( 1,0,0 );
-        let xy = __vec3_3; 
-        xy.copy( position );
-        xy.z = 0; // project into XY plane
-
-        // compute polar and azimuth angles
-        swingPolarAngle = front.angleTo( position );
-        swingAzimuthAngle = right.angleTo( xy );
-        if( xy.y < 0 ){ swingAzimuthAngle = -swingAzimuthAngle + Math.PI*2;}
-
-        // constrain angles
-        if ( constraint.polar ){ swingPolarAngle = this._constraintAngle( swingPolarAngle, constraint.polar[0], constraint.polar[1] );           }
-        if ( constraint.azimuth ){ swingAzimuthAngle = this._constraintAngle( swingAzimuthAngle, constraint.azimuth[0], constraint.azimuth[1] ); }
-
-        // regenerate point with fixed angles
-        position.set( right.x, right.y, right.z );
-        position.applyAxisAngle( front, swingAzimuthAngle );
-        __vec3_1.crossVectors( position, front );
-        __vec3_1.normalize();
-        position.applyAxisAngle( __vec3_1, Math.PI * 0.5 - swingPolarAngle );
     }
 
 
@@ -339,14 +215,13 @@ class FABRIKSolver {
         switch( constraint.type ){
             case FABRIKSolver.JOINTTYPES.HINGE: this.__hinge( posInAxisSpace, constraint ); break;
             case FABRIKSolver.JOINTTYPES.BALLSOCKET: this.__ballSocket( posInAxisSpace, constraint ); break;
-            case FABRIKSolver.JOINTTYPES.CONE: this.__cone( posInAxisSpace, constraint ); break;
             default: break;
         }  
 
         // back to joint space
         _mat3.setFromMatrix4( lookAtMat );
         posInAxisSpace.applyMatrix3( _mat3 );
-
+        
         // compute swing
         let swingAxis = _vec3_3;
         swingAxis.crossVectors( bindTwistAxis, posInAxisSpace );
@@ -366,6 +241,7 @@ class FABRIKSolver {
             swing.setFromAxisAngle( swingAxis, bindTwistAxis.angleTo( posInAxisSpace ) );
             swing.normalize();
         }
+        
         // actual TWIST constraint
         if( constraint.twist ){
             let twistAngle = 2* Math.acos( twist.w ); 
@@ -387,7 +263,7 @@ class FABRIKSolver {
 
     }
 
-    reachTarget ( ){
+    update ( ){
         // final step of rotations probably wrong. Matrixworld and matrix of parents and childs are not being updated. So bones are not being progressively snaped to their targets
         let bones = this.skeleton.bones;
         let positions = this.positions;
@@ -455,7 +331,7 @@ class FABRIKSolver {
                 // from parent to effector
                 let axis = _vec3;
                 let quat = _quat;
-                for ( let i = chain.length-1; i >= 1; --i ){
+                for ( let i = chain.length-1; i > 0; --i ){ // last bone (effector) does not need rotation fix
                     let boneIdx = chain[i]; // parent
                     let nextBoneIdx = chain[i-1]; // child
                     
@@ -495,9 +371,165 @@ class FABRIKSolver {
             }  
         }
     }
+
+
+
+    // -------------------- HINGE -------------------- 
+    __fixHingeConstraints ( constraint ){
+        if( constraint.axis ){
+            if ( constraint.axis.isVector3 ){
+                __vec3_1.copy( constraint.axis );
+            }else{
+                __vec3_1.set( constraint.axis[0], constraint.axis[1], constraint.axis[2] );
+            }
+            __vec3_1.normalize();
+            constraint.axis = __vec3_1.clone();
+            
+            // set right axis, to compute angle
+            __vec3_1.set( 0,0,1 );
+            let dot = constraint.axis.dot( __vec3_1 ); 
+            if ( dot > 0.9999 ){ __vec3_1.set( 1,0,0 ); } // axis is +z, right will be +x
+            if ( dot < -0.9999 ){ __vec3_1.set( -1,0,0 ); } // axis is -z, right will be -x
+            else{ 
+                __vec3_2.set( 0,1,0 ); // up
+                __vec3_1.crossVectors( __vec3_2, constraint.axis );
+                __vec3_1.normalize();
+            }
+            constraint.right = __vec3_1.clone();
+        }
+        if ( constraint.min ){ constraint.min = constraint.min % (Math.PI*2); if ( constraint.min < 0 ){ constraint.min += Math.PI*2; } }
+        if ( constraint.max ){ constraint.max = constraint.max % (Math.PI*2); if ( constraint.max < 0 ){ constraint.max += Math.PI*2; } }
+        return constraint;
+    }
+
+    __hinge( position, constraint ){
+        if ( !constraint.axis ){ return; }
+
+        __vec3_1.copy( constraint.axis );
+
+        let dot = __vec3_1.dot( position );
+        if ( dot < -0.9999 && dot > 0.9999 ){ position.copy( constraint.right ); } // position parallel to rotation axis
+        else{ position.sub( __vec3_1.multiplyScalar( dot ) ); } // project
+
+        if ( isNaN(constraint.min) || isNaN(constraint.max) ){ return; }
+
+        
+        //TODO:  can be optimized to no use any angle, but cos and sin instead
+
+        let angle = constraint.right.angleTo(position); // [0,180]
+        
+        // fix angle range from [0,180] to [0,360]
+        __vec3_2.crossVectors( constraint.right, position );        
+        if (__vec3_2.dot( constraint.axis ) < 0){ angle = -angle + Math.PI*2; }
+        
+        angle = this._constraintAngle( angle, constraint.min, constraint.max );
+        position.copy( constraint.right );
+        position.applyAxisAngle( constraint.axis, angle );
+    }
+
+
+    // -------------------- BALL SOCKET -------------------- 
+
+    /* // without azimuth. Probably faster 
+    __fixBallSocketConstraints ( constraint ){
+        // range [0-180]
+        if ( constraint.min ){ constraint.min = constraint.min % (Math.PI); if ( constraint.min < 0 ){ constraint.min += Math.PI*2; } }
+        if ( constraint.max ){ constraint.max = constraint.max % (Math.PI); if ( constraint.max < 0 ){ constraint.max += Math.PI*2; } }
+    }
+
+    __ballSocket ( position, constraint ){
+    
+        let front = __vec3_1; front.set( 0,0,1 );
+        let dot = front.dot( position );
+
+        position.sub( front.multiplyScalar( dot ) );
+        position.normalize();
+
+        let min = Math.cos( constraint.min ); 
+        let max = Math.cos( constraint.max ); 
+        if ( min > dot ){ dot = min; }
+        if ( max < dot ){ dot = max; }
+
+        let sin = Math.sqrt( 1 - dot * dot ); // 1 = sin^2 + cos^2
+        position.multiplyScalar( sin );
+    }*/
+
+
+    // -------------------- SPHERICAL COORDINATES -------------------- 
+
+    __fixBallSocketConstraints ( constraint ){
+        if ( constraint.polar ){ // POLAR range [0-180]
+            constraint.polar[0] = Math.max(0, Math.min( Math.PI, constraint.polar[0] ) );
+            constraint.polar[1] = Math.max( constraint.polar[0], Math.max(0, Math.min( Math.PI, constraint.polar[1] ) ) );
+        }
+        if ( constraint.azimuth ){ 
+            constraint.azimuth[0] = constraint.azimuth[0] % (Math.PI*2); if ( constraint.azimuth[0] < 0 ){ constraint.azimuth[0] += Math.PI*2; } 
+            constraint.azimuth[1] = constraint.azimuth[1] % (Math.PI*2); if ( constraint.azimuth[1] < 0 ){ constraint.azimuth[1] += Math.PI*2; } 
+        }
+
+        // fix axis
+        if ( !constraint.axis ){ __vec3_1.set(0,0,1); }// same direction as bone
+        else if ( constraint.axis.isVector3 ){ __vec3_1.copy( constraint.axis ); }
+        else{ __vec3_1.set( constraint.axis[0], constraint.axis[1], constraint.axis[2] ); }
+        __vec3_1.normalize();
+        if ( __vec3_1.lengthSq < 0.00001 ){ __vec3_1.set(0,0,1); }
+        constraint.axis = __vec3_1.clone(); // front axis
+        
+        // compute right axis ( X = cross(Y,Z) ) check front axis is not Y
+        __vec3_1.set( 0,1,0 );
+        let dot = constraint.axis.dot( __vec3_1 ); 
+        if ( dot > 0.9999 || dot < -0.9999 ){ __vec3_1.set( 1,0,0 ); } // axis is y, right will be +x
+        else{ 
+            __vec3_2.set( 0,1,0 ); // up
+            __vec3_1.crossVectors( __vec3_2, constraint.axis ); // cross( Y, Z )
+            __vec3_1.normalize(); // X axis
+        }
+
+        constraint.right = __vec3_1.clone(); // right axis
+        constraint.up = new THREE.Vector3();
+        constraint.up.crossVectors( constraint.axis, constraint.right ); // Y = cross( Z, X )
+        constraint.up.normalize();
+        
+    }
+
+    // spherical coords
+    __ballSocket ( position, constraint ){
+
+        if ( !constraint.polar && !constraint.azimuth ){ return; }
+        let swingPolarAngle = 0;
+        let swingAzimuthAngle = 0; // XY plane where +X is 0º
+        
+        let front = constraint.axis;
+        let right = constraint.right;
+        let up = constraint.up
+        let xy = __vec3_3; 
+        xy.copy( front );
+        xy.subVectors( position, xy.multiplyScalar( front.dot(position) ) ); // rejection of position
+
+
+        // compute polar and azimuth angles
+        swingPolarAngle = front.angleTo( position );
+        swingAzimuthAngle = right.angleTo( xy );
+        if( up.dot( xy ) < 0 ){ swingAzimuthAngle = -swingAzimuthAngle + Math.PI*2;}
+
+        // constrain angles
+        if ( constraint.polar ){ swingPolarAngle = this._constraintAngle( swingPolarAngle, constraint.polar[0], constraint.polar[1] );           }
+        if ( constraint.azimuth ){ swingAzimuthAngle = this._constraintAngle( swingAzimuthAngle, constraint.azimuth[0], constraint.azimuth[1] ); }
+
+        // regenerate point with fixed angles
+        position.set( right.x, right.y, right.z );
+        position.applyAxisAngle( front, swingAzimuthAngle );
+        __vec3_1.crossVectors( position, front );
+        __vec3_1.normalize();
+        position.applyAxisAngle( __vec3_1, Math.PI * 0.5 - swingPolarAngle );
+    }
+
+
+
+
 };
 
-FABRIKSolver.JOINTTYPES = { HINGE: 1, BALLSOCKET: 2, CONE: 3 };
+FABRIKSolver.JOINTTYPES = { HINGE: 1, BALLSOCKET: 2 };
 
 
 export{ FABRIKSolver };
