@@ -109,7 +109,7 @@ class App {
                     object.frustumCulled = false;
                     object.castShadow = true;
                     object.receiveShadow = true;
-                    textureLoader.load( "./data/anim/lowPoly/woman.png", (texture) => { 
+                    textureLoader.load( "./data/models/lowPoly/woman.png", (texture) => { 
                         object.material = new THREE.MeshStandardMaterial( {side: THREE.FrontSide, map: texture, roughness: 0.7, metalness: 0.1} );
                         object.material.map.flipY = false;
                     } );
@@ -177,8 +177,8 @@ class App {
             $('#loading').fadeOut(); //hide();
         }
         
-        //this.loaderGLB.load( './data/anim/Eva_Y.glb', loadModel.bind( this, loadfinished.bind(this) ) );
-        this.loaderGLB.load( './data/anim/lowPoly/woman.gltf', loadModel.bind( this, loadfinished.bind(this) ) );
+        //this.loaderGLB.load( './data/models/Eva_Y.glb', loadModel.bind( this, loadfinished.bind(this) ) );
+        this.loaderGLB.load( './data/models/lowPoly/woman.gltf', loadModel.bind( this, loadfinished.bind(this) ) );
         
         window.addEventListener( 'resize', this.onWindowResize.bind(this) );
         
