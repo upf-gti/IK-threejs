@@ -28,7 +28,7 @@ class App {
         this.gui = new GUI();
         this.chains = [];
         this.solvers = ["CCDIK", "FABRIK", "MIX"];
-        this.solver = this.solvers[0];
+        this.solver = this.solvers[1];
     }
 
     init() {
@@ -256,14 +256,17 @@ class App {
 
             this.FABRIKSolver.createChain( 
                 [33, 32, 31], 
-                [ null,    {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, 0.0001 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   {type: FABRIKSolver.JOINTTYPES.CONE, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.5]}], 
+                [ null,    {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, 0.0001 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.45]}], 
                 this.IKTargetLeg // OBject3D (or equivalents) for now. It must be in the scene
-            );  
+            ); 
+
             this.FABRIKSolver.createChain( 
                 [10, 9, 8], 
-                [ null,    {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, 0.0001 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   {type: FABRIKSolver.JOINTTYPES.CONE, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.5]}], 
+                [ null,    {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, Math.PI*0.5 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.5]}], 
                 this.IKTargetArm // OBject3D (or equivalents) for now. It must be in the scene
             );  
+
+
         }
         else {
             this.FABRIKSolver.createChain( 
@@ -272,7 +275,7 @@ class App {
                 this.IKTargetLeg // OBject3D (or equivalents) for now. It must be in the scene
             );  
             this.FABRIKSolver.createChain( 
-                [10, 9, 8], 
+                [10, 9], 
                 [ null,    null,   null], 
                 this.IKTargetArm // OBject3D (or equivalents) for now. It must be in the scene
             );  
@@ -281,7 +284,9 @@ class App {
 
     initGUI() {
         let solver = this.gui.addFolder("Solver");
+
         solver.add({solver: this.solver}, 'solver', this.solvers).name("Solver").onChange(v => {
+            
             if(v == "MIX") {
                 this.initFabrik(false);
             }
@@ -289,8 +294,12 @@ class App {
                 this.initFabrik(true);
             }
             this.solver = v;
-
+            
         })
+        
+        let constraintsEnabler = { v: true };
+        //solver.add( constraintsEnabler, "v" ).onChange( v => { this.FABRIKSolver.constraintsEnabler = v; });
+
         for(let i = 0; i < this.chains.length; i++){
             let folder = this.gui.addFolder(this.chains[i].name);
             let bones = this.skeleton.bones;
@@ -378,16 +387,14 @@ class App {
                     break;
 
                 case "FABRIK":
-                    this.FABRIKSolver.reachTarget( this.IKTargetArm.getWorldPosition(new THREE.Vector3()) );
-                    this.FABRIKSolver.reachTarget( this.IKTargetLeg.getWorldPosition(new THREE.Vector3()) );
+                    this.FABRIKSolver.update();
                     break;
 
                 case "MIX":
-                    break;
-                    this.FABRIKSolver.reachTarget( this.IKTargetArm.getWorldPosition(new THREE.Vector3()) );
-                    this.FABRIKSolver.reachTarget( this.IKTargetLeg.getWorldPosition(new THREE.Vector3()) );
-            
+                    this.FABRIKSolver.update();
+                    
                     this.CCDIKSolver.update();
+                    break;
             }
         }
 
