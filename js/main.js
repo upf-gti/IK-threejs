@@ -26,7 +26,8 @@ class App {
 
         this.msg = {};
         this.gui = new GUI();
-        this.chains = [];
+        this.chainsCCDIK = []; // CCDIK
+        this.chainsFABRIK = []; // FABRIK
         this.solvers = ["CCDIK", "FABRIK", "MIX"];
         this.solver = this.solvers[1];
     }
@@ -172,7 +173,7 @@ class App {
             
             this.animate();
             this.initCCDIK();
-            this.initFabrik(true);
+            this.initFabrik();
             this.initGUI()
             $('#loading').fadeOut(); //hide();
         }
@@ -189,7 +190,7 @@ class App {
     * Initialization of CCD solver. Add Left Arm and Left Leg chains [Bone origin, ..., Bone end-effector] to the solver with their corresponding constraints and targetgs.
     */
     initCCDIK(){
-        this.chains = [
+        this.chainsCCDIK = [
             {
                 name: 'leftArm',
                 target: this.skeleton.bones.length-2, // "target_hand_l"
@@ -239,123 +240,135 @@ class App {
         ];
         
       
-        this.CCDIKSolver = new CCDIKSolver( this.model.getObjectByName("Woman"), this.chains );
+        this.CCDIKSolver = new CCDIKSolver( this.model.getObjectByName("Woman"), this.chainsCCDIK );
 
     }
 
     /**
     * @description
     * Initialization of FABRIK solver. Add Left Arm and Left Leg chains [Bone origin, ..., Bone end-effector] to the solver with their corresponding constraints and targetgs.
-    * @params
-    * constraints: Boolean that indicates if the chains have to be constrained
     */
-    initFabrik(constraints) {
-
+    initFabrik() {
+        this.chainsFABRIK = [
+            {
+                name: "leftArm",
+                chain: [10, 9, 8], 
+                constraints: [ null,    {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, Math.PI*0.5 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.5], azimuth:[0, Math.PI*2-0.0001]}], 
+                target: this.IKTargetArm // OBject3D (or equivalents) for now. It must be in the scene
+            },
+            { 
+                name: "leftLeg",
+                chain: [33, 32, 31], 
+                constraints:  [ null,    {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, 0.0001 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.45], azimuth:[0, Math.PI*2-0.0001]}], 
+                target:  this.IKTargetLeg // OBject3D (or equivalents) for now. It must be in the scene
+            }
+        ]
         this.FABRIKSolver = new FABRIKSolver( this.skeleton );
-        if(constraints) {
 
-            this.FABRIKSolver.createChain( 
-                [33, 32, 31], 
-                [ null,    {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, 0.0001 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.45]}], 
-                this.IKTargetLeg // OBject3D (or equivalents) for now. It must be in the scene
-            ); 
-
-            this.FABRIKSolver.createChain( 
-                [10, 9, 8], 
-                [ null,    {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, Math.PI*0.5 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.5]}], 
-                this.IKTargetArm // OBject3D (or equivalents) for now. It must be in the scene
-            );  
-
-
-        }
-        else {
-            this.FABRIKSolver.createChain( 
-                [33, 32, 31], 
-                [ null,    null,   null], 
-                this.IKTargetLeg // OBject3D (or equivalents) for now. It must be in the scene
-            );  
-            this.FABRIKSolver.createChain( 
-                [10, 9], 
-                [ null,    null,   null], 
-                this.IKTargetArm // OBject3D (or equivalents) for now. It must be in the scene
-            );  
-        }
+        this.FABRIKSolver.createChain( this.chainsFABRIK[0].chain, this.chainsFABRIK[0].constraints, this.chainsFABRIK[0].target ); 
+        this.FABRIKSolver.createChain( this.chainsFABRIK[1].chain, this.chainsFABRIK[1].constraints, this.chainsFABRIK[1].target ); 
     }
 
     initGUI() {
         let solver = this.gui.addFolder("Solver");
+        let ccdikFolder = this.gui.addFolder( "CCDIK constraints");
+        let fabrikFolder = this.gui.addFolder( "FABRIK constraints");
 
         solver.add({solver: this.solver}, 'solver', this.solvers).name("Solver").onChange(v => {
             
             if(v == "MIX") {
-                this.initFabrik(false);
+                this.FABRIKSolver.constraintsEnabler = false;
+                ccdikFolder.domElement.style.display = "block";
+                fabrikFolder.domElement.style.display = "block";
             }
             else if(v == "FABRIK") {
-                this.initFabrik(true);
+                this.FABRIKSolver.constraintsEnabler = true;
+                ccdikFolder.domElement.style.display = "none";
+                fabrikFolder.domElement.style.display = "block";
+            }
+            else{
+                ccdikFolder.domElement.style.display = "block";
+                fabrikFolder.domElement.style.display = "none";
             }
             this.solver = v;
             
         })
         
         let constraintsEnabler = { v: true };
-        //solver.add( constraintsEnabler, "v" ).onChange( v => { this.FABRIKSolver.constraintsEnabler = v; });
-
-        for(let i = 0; i < this.chains.length; i++){
-            let folder = this.gui.addFolder(this.chains[i].name);
+        //let test= solver.add( constraintsEnabler, "v" ).onChange( v => { this.FABRIKSolver.constraintsEnabler = v; });    
+        
+        // FABRIK GUI
+        for( let i =0; i < this.chainsFABRIK.length; ++i ){
+            let folder = fabrikFolder.addFolder( this.chainsFABRIK[i].name );
             let bones = this.skeleton.bones;
-            for(let j = 0; j < this.chains[i].links.length; j++){
-                let subfolder = folder.addFolder("Bone "+ bones[this.chains[i].links[j].index].name);
+            for ( let j = 1; j < this.chainsFABRIK[i].chain.length; ++j ){
+                let subfolder = folder.addFolder("Bone " + bones[this.chainsFABRIK[i].chain[j]].name );
                 
-                subfolder.add(this.chains[i].links[j], "limitX").listen().onChange(v => { 
+                let constraints = this.chainsFABRIK[i].constraints[j];
+                subfolder.add( this.chainsFABRIK[i])
+            }
+
+        }
+
+
+        // CCDIK GUI
+        for(let i = 0; i < this.chainsCCDIK.length; i++){
+            let folder = ccdikFolder.addFolder(this.chainsCCDIK[i].name);
+            let bones = this.skeleton.bones;
+            for(let j = 0; j < this.chainsCCDIK[i].links.length; j++){
+                let subfolder = folder.addFolder("Bone "+ bones[this.chainsCCDIK[i].links[j].index].name);
+                
+                subfolder.add(this.chainsCCDIK[i].links[j], "limitX").listen().onChange(v => { 
                     if(!v){ 
-                        this.chains[i].links[j].rotationMin.x = -2*Math.PI
-                        this.chains[i].links[j].rotationMax.x = 2*Math.PI
-                    }});
-                    subfolder.add(this.chains[i].links[j].rotationMin, "x", -2*Math.PI, 2*Math.PI)
+                        this.chainsCCDIK[i].links[j].rotationMin.x = -2*Math.PI
+                        this.chainsCCDIK[i].links[j].rotationMax.x = 2*Math.PI
+                    }
+                });
+                subfolder.add(this.chainsCCDIK[i].links[j].rotationMin, "x", -2*Math.PI, 2*Math.PI)
                 .name("Min")           
                 .onChange(                      
                     value => {
-                        this.chains[i].links[j].rotationMin.x = value;                
+                        this.chainsCCDIK[i].links[j].rotationMin.x = value;                
                     }
                 ); 
-                subfolder.add(this.chains[i].links[j].rotationMax, "x", -2*Math.PI, 2*Math.PI) 
+                subfolder.add(this.chainsCCDIK[i].links[j].rotationMax, "x", -2*Math.PI, 2*Math.PI) 
                 .name("Max")            
                 .onChange(                      
                     value => {
-                        this.chains[i].links[j].rotationMax.x = value;               
+                        this.chainsCCDIK[i].links[j].rotationMax.x = value;               
                     }
                 ); 
 
-                subfolder.add(this.chains[i].links[j], "limitY").listen();
-                subfolder.add(this.chains[i].links[j].rotationMin, "y", -2*Math.PI, 2*Math.PI) 
+                subfolder.add(this.chainsCCDIK[i].links[j], "limitY").listen();
+                subfolder.add(this.chainsCCDIK[i].links[j].rotationMin, "y", -2*Math.PI, 2*Math.PI) 
                 .name("Min")         
                 .onChange(                    
                     value => {
-                        this.chains[i].links[j].rotationMin.y = value;             
+                        this.chainsCCDIK[i].links[j].rotationMin.y = value;             
                     }
                 ); 
 
-                subfolder.add(this.chains[i].links[j].rotationMax, "y", -2*Math.PI, 2*Math.PI) 
+                subfolder.add(this.chainsCCDIK[i].links[j].rotationMax, "y", -2*Math.PI, 2*Math.PI) 
                 .name("Max")      
                 .onChange(          
                     value => {
-                        this.chains[i].links[j].rotationMax.y = value;            
+                        this.chainsCCDIK[i].links[j].rotationMax.y = value;            
                     }
                 ); 
 
-                subfolder.add(this.chains[i].links[j], "limitZ").listen();
-                subfolder.add(this.chains[i].links[j].rotationMin, "z", -2*Math.PI, 2*Math.PI) 
+                subfolder.add(this.chainsCCDIK[i].links[j], "limitZ").listen();
+                subfolder.add(this.chainsCCDIK[i].links[j].rotationMin, "z", -2*Math.PI, 2*Math.PI) 
                 .name("Min")             
                 .onChange(                     
                     value => {
-                        this.chains[i].links[j].rotationMin.z = value;                                      
+                        this.chainsCCDIK[i].links[j].rotationMin.z = value;                                      
                     }
                 ); 
-                subfolder.add(this.chains[i].links[j].rotationMax, "z", -2*Math.PI, 2*Math.PI) 
+                subfolder.add(this.chainsCCDIK[i].links[j].rotationMax, "z", -2*Math.PI, 2*Math.PI) 
                 .name("Max")        
                 .onChange(                      
                     value => {
-                        this.chains[i].links[j].rotationMax.z = value;                                          
+                        this.chainsCCDIK[i].links[j].rotationMax.z = value;                                          
                     }
                 ); 
             }
@@ -392,7 +405,6 @@ class App {
 
                 case "MIX":
                     this.FABRIKSolver.update();
-                    
                     this.CCDIKSolver.update();
                     break;
             }

@@ -11,6 +11,34 @@ let __vec3_1 = new THREE.Vector3();
 let __vec3_2 = new THREE.Vector3();
 let __vec3_3 = new THREE.Vector3();
 let _mat3 = new THREE.Matrix3();
+let _mat3_2 = new THREE.Matrix3();
+let _mat4 = new THREE.Matrix4();
+
+
+// needed for applying a constraint. range of constraint and angle >= 0
+function _snapToClosestAngle ( angle, minConstraint = 0, maxConstraint = 360 ){
+    // needed to ensure boundaries when constraint crosses the 0º/360º (discontinuity)
+    let min = Math.min ( Math.abs( minConstraint - angle), Math.min( Math.abs( minConstraint - ( angle - Math.PI * 2 ) ), Math.abs( minConstraint - ( angle + Math.PI * 2 ) ) ) );
+    let max = Math.min ( Math.abs( maxConstraint - angle), Math.min( Math.abs( maxConstraint - ( angle - Math.PI * 2 ) ), Math.abs( maxConstraint - ( angle + Math.PI * 2 ) ) ) );
+    
+    if ( min < max ){ return minConstraint; } 
+    return maxConstraint;
+}
+
+// angle && minConstraint && maxConstraint = [0,360]
+function _constraintAngle ( angle, minConstraint = 0, maxConstraint = 360 ){
+    if ( angle < 0 ){ angle += Math.PI * 2; }
+    if ( minConstraint > maxConstraint ){ // range crosses 0º (like range [300º, 45º] )
+        if ( angle > maxConstraint && angle < minConstraint ){ // out of boundaries
+            angle = _snapToClosestAngle( angle, minConstraint, maxConstraint ); 
+        }
+    }else{ // normal range (like [0º, 135º] )
+        if ( !( angle > minConstraint && angle < maxConstraint ) ){ // out of boundaries
+            angle = _snapToClosestAngle( angle, minConstraint, maxConstraint );
+        }    
+    }
+    return angle;
+}
 
 /* -------------- threejs skeleton info
 
@@ -111,9 +139,9 @@ class FABRIKSolver {
                 if ( !c ){ continue; }
                 
                 switch( c.type ){
-                    case FABRIKSolver.JOINTTYPES.HINGE: this.__fixHingeConstraints( c ); break;
-                    case FABRIKSolver.JOINTTYPES.BALLSOCKET: this.__fixBallSocketConstraints( c ); break;
-                    default: break;
+                    case FABRIKSolver.JOINTTYPES.HINGE: c.joint = new JointHinge(); c.joint.changeConstraints(c); break;//this.__fixHingeConstraints( c ); break;
+                    case FABRIKSolver.JOINTTYPES.BALLSOCKET: c.joint = new JointBallSocket(); c.joint.changeConstraints(c); break;//this.__fixBallSocketConstraints( c ); break;
+                    default: c.type = FABRIKSolver.JOINTTYPES.OMNI; break;
                 }       
 
                 if ( c.twist ){
@@ -133,32 +161,6 @@ class FABRIKSolver {
         chainInfo.target = targetObj;
         this.chains.push( chainInfo );
     }
-
-    // needed for applying a constraint. range of constraint and angle >= 0
-    _snapToClosestAngle ( angle, minConstraint = 0, maxConstraint = 360 ){
-        // needed to ensure boundaries when constraint crosses the 0º/360º (discontinuity)
-        let min = Math.min ( Math.abs( minConstraint - angle), Math.min( Math.abs( minConstraint - ( angle - Math.PI * 2 ) ), Math.abs( minConstraint - ( angle + Math.PI * 2 ) ) ) );
-        let max = Math.min ( Math.abs( maxConstraint - angle), Math.min( Math.abs( maxConstraint - ( angle - Math.PI * 2 ) ), Math.abs( maxConstraint - ( angle + Math.PI * 2 ) ) ) );
-        
-        if ( min < max ){ return minConstraint; } 
-        return maxConstraint;
-    }
-    
-    // angle && minConstraint && maxConstraint = [0,360]
-    _constraintAngle ( angle, minConstraint = 0, maxConstraint = 360 ){
-        if ( angle < 0 ){ angle += Math.PI * 2; }
-        if ( minConstraint > maxConstraint ){ // range crosses 0º (like range [300º, 45º] )
-            if ( angle > maxConstraint && angle < minConstraint ){ // out of boundaries
-                angle = this._snapToClosestAngle( angle, minConstraint, maxConstraint ); 
-            }
-        }else{ // normal range (like [0º, 135º] )
-            if ( !( angle > minConstraint && angle < maxConstraint ) ){ // out of boundaries
-                angle = this._snapToClosestAngle( angle, minConstraint, maxConstraint );
-            }    
-        }
-        return angle;
-    }
-
 
     _applyConstraint ( chainIdx, chainBoneIndex = 1 ){
         let chain = this.chains[ chainIdx ].chain;
@@ -180,10 +182,14 @@ class FABRIKSolver {
         //--- in bone space, create a lookAt matrix with the bind bone as +z
         bindTwistAxis.copy( this.boneDirs[ childIdx ] ); 
 
-        let lookAtMat = new THREE.Matrix4(); // L -> W
-        lookAtMat.lookAt( bindTwistAxis, new THREE.Vector3(0,0,0), new THREE.Vector3(0,1,0) ); // apparently it does not set the translation... threjs...
-        let invLookAtMat = lookAtMat.clone(); // W -> L
-        invLookAtMat.invert();
+        _vec3_2.set( 0,0,0 );
+        _vec3_3.set( 0,1,0 );
+        _mat4.lookAt( bindTwistAxis, _vec3_2, _vec3_3 ); // apparently it does not set the translation... threjs...
+        let lookAtMat = _mat3; // L -> W
+        lookAtMat.setFromMatrix4(_mat4);
+        let invLookAtMat = _mat3_2; // W -> L
+        invLookAtMat.setFromMatrix4(_mat4);
+        invLookAtMat.invert(); // this probably is just the transpose
         //---
 
         let bindRot = this.bindQuats[ boneIdx ];
@@ -208,19 +214,17 @@ class FABRIKSolver {
         let posInAxisSpace = _vec3_2;
         posInAxisSpace.copy( bindTwistAxis );
         posInAxisSpace.applyQuaternion( swing );
-        _mat3.setFromMatrix4( invLookAtMat );
-        posInAxisSpace.applyMatrix3(_mat3);
+        posInAxisSpace.applyMatrix3(invLookAtMat); // transform into space "bind Bone == +z"
 
         // actual SWING constraint
         switch( constraint.type ){
-            case FABRIKSolver.JOINTTYPES.HINGE: this.__hinge( posInAxisSpace, constraint ); break;
-            case FABRIKSolver.JOINTTYPES.BALLSOCKET: this.__ballSocket( posInAxisSpace, constraint ); break;
+            case FABRIKSolver.JOINTTYPES.HINGE: constraint.joint.applyConstraintSwing( posInAxisSpace ); break; //this.__hinge( posInAxisSpace, constraint ); break;
+            case FABRIKSolver.JOINTTYPES.BALLSOCKET: constraint.joint.applyConstraintSwing( posInAxisSpace); break;//this.__ballSocket( posInAxisSpace, constraint ); break;
             default: break;
         }  
 
-        // back to joint space
-        _mat3.setFromMatrix4( lookAtMat );
-        posInAxisSpace.applyMatrix3( _mat3 );
+        // from "bind Bone == +z" space back to joint space
+        posInAxisSpace.applyMatrix3( lookAtMat );
         
         // compute swing
         let swingAxis = _vec3_3;
@@ -249,7 +253,7 @@ class FABRIKSolver {
             tempTwistAxis.set( twist.x, twist.y, twist.z );
             if ( tempTwistAxis.dot( bindTwistAxis ) < 0 ){ twistAngle = ( -twistAngle ) + Math.PI * 2; } // correct angle value as acos only returns 0-180
 
-            twistAngle = this._constraintAngle( twistAngle, constraint.twist[0], constraint.twist[1] );            
+            twistAngle = _constraintAngle( twistAngle, constraint.twist[0], constraint.twist[1] );            
             twist.setFromAxisAngle( bindTwistAxis, twistAngle );
         }
 
@@ -375,7 +379,7 @@ class FABRIKSolver {
 
 
     // -------------------- HINGE -------------------- 
-    __fixHingeConstraints ( constraint ){
+    /*__fixHingeConstraints ( constraint ){
         if( constraint.axis ){
             if ( constraint.axis.isVector3 ){
                 __vec3_1.copy( constraint.axis );
@@ -422,11 +426,11 @@ class FABRIKSolver {
         __vec3_2.crossVectors( constraint.right, position );        
         if (__vec3_2.dot( constraint.axis ) < 0){ angle = -angle + Math.PI*2; }
         
-        angle = this._constraintAngle( angle, constraint.min, constraint.max );
+        angle = _constraintAngle( angle, constraint.min, constraint.max );
         position.copy( constraint.right );
         position.applyAxisAngle( constraint.axis, angle );
     }
-
+    */
 
     // -------------------- BALL SOCKET -------------------- 
 
@@ -456,7 +460,7 @@ class FABRIKSolver {
 
 
     // -------------------- SPHERICAL COORDINATES -------------------- 
-
+/*
     __fixBallSocketConstraints ( constraint ){
         if ( constraint.polar ){ // POLAR range [0-180]
             constraint.polar[0] = Math.max(0, Math.min( Math.PI, constraint.polar[0] ) );
@@ -513,8 +517,8 @@ class FABRIKSolver {
         if( up.dot( xy ) < 0 ){ swingAzimuthAngle = -swingAzimuthAngle + Math.PI*2;}
 
         // constrain angles
-        if ( constraint.polar ){ swingPolarAngle = this._constraintAngle( swingPolarAngle, constraint.polar[0], constraint.polar[1] );           }
-        if ( constraint.azimuth ){ swingAzimuthAngle = this._constraintAngle( swingAzimuthAngle, constraint.azimuth[0], constraint.azimuth[1] ); }
+        if ( constraint.polar ){ swingPolarAngle = _constraintAngle( swingPolarAngle, constraint.polar[0], constraint.polar[1] );           }
+        if ( constraint.azimuth ){ swingAzimuthAngle = _constraintAngle( swingAzimuthAngle, constraint.azimuth[0], constraint.azimuth[1] ); }
 
         // regenerate point with fixed angles
         position.set( right.x, right.y, right.z );
@@ -523,13 +527,187 @@ class FABRIKSolver {
         __vec3_1.normalize();
         position.applyAxisAngle( __vec3_1, Math.PI * 0.5 - swingPolarAngle );
     }
-
-
-
+*/
 
 };
 
-FABRIKSolver.JOINTTYPES = { HINGE: 1, BALLSOCKET: 2 };
+
+/*class Joint {
+    constructor(){
+        this.type = FABRIKSolver.JOINTTYPES.OMNI;
+        this.
+    }
+    changeConstraints ( constraints ){
+        // actual TWIST constraint
+        if( constraints.twist ){
+            let twistAngle = 2* Math.acos( twist.w ); 
+            let tempTwistAxis = _vec3_3;
+            tempTwistAxis.set( twist.x, twist.y, twist.z );
+            if ( tempTwistAxis.dot( bindTwistAxis ) < 0 ){ twistAngle = ( -twistAngle ) + Math.PI * 2; } // correct angle value as acos only returns 0-180
+
+            twistAngle = _constraintAngle( twistAngle, constraint.twist[0], constraint.twist[1] );            
+            twist.setFromAxisAngle( bindTwistAxis, twistAngle );
+        }
+    }
+    applyConstraintSwing( position ){}
+    applyConstraintTwist( twistQuat ){}
+}
+*/
+class JointBallSocket {
+    constructor(){
+        this.type = FABRIKSolver.JOINTTYPES.BALLSOCKET;
+        
+        this.front = new THREE.Vector3(0,0,1); // axis on which it rotates
+        this.up = new THREE.Vector3(0,1,0);
+        this.right = new THREE.Vector3(1,0,0);
+
+        this.polar = null; // [min, max] rads
+        this.azimuth = null; // [min, max] rads
+    }
+
+    changeConstraints ( constraints ){
+
+        this.polar = null;
+        this.azimuth = null;
+
+        if ( constraints.polar ){ // POLAR range [0-180]
+            this.polar = [0, Math.PI]; 
+            this.polar[0] = Math.max(0, Math.min( Math.PI, constraints.polar[0] ) );
+            this.polar[1] = Math.max( this.polar[0], Math.max(0, Math.min( Math.PI, constraints.polar[1] ) ) );
+        }
+        if ( constraints.azimuth ){
+            this.azimuth = [0, Math.PI*2]
+            this.azimuth[0] = constraints.azimuth[0] % (Math.PI*2); 
+            this.azimuth[1] = constraints.azimuth[1] % (Math.PI*2);
+            if ( this.azimuth[0] < 0 ){ this.azimuth[0] += Math.PI*2; } 
+            if ( this.azimuth[1] < 0 ){ this.azimuth[1] += Math.PI*2; } 
+        }
+
+        // fix axis
+        if ( !constraints.axis ){ __vec3_1.set(0,0,1); }// same direction as bone
+        else if ( constraints.axis.isVector3 ){ __vec3_1.copy( constraints.axis ); }
+        else{ __vec3_1.set( constraints.axis[0], constraints.axis[1], constraints.axis[2] ); }
+        
+        if ( __vec3_1.lengthSq < 0.00001 ){ __vec3_1.set(0,0,1); }
+        __vec3_1.normalize();
+        this.front.copy( __vec3_1 ); // front axis
+        
+        // compute right axis ( X = cross(Y,Z) ) check front axis is not Y
+        __vec3_1.set( 0,1,0 );
+        let dot = this.front.dot( __vec3_1 ); 
+        if ( dot > 0.9999 || dot < -0.9999 ){ __vec3_1.set( 1,0,0 ); } // axis is y, right will be +x
+        else{ 
+            __vec3_2.set( 0,1,0 ); // up
+            __vec3_1.crossVectors( __vec3_2, this.front ); // cross( Y, Z )
+            __vec3_1.normalize(); // X axis
+        }
+
+        this.right.copy( __vec3_1 ); // right axis
+        this.up.crossVectors( this.front, this.right ); // Y = cross( Z, X )
+        this.up.normalize();
+
+    }
+
+    // modifies position vector
+    applyConstraintSwing( position ){
+        if ( !this.polar && !this.azimuth ){ return; }
+        let swingPolarAngle = 0;
+        let swingAzimuthAngle = 0; // XY plane where +X is 0º
+        
+        let front = this.front;
+        let right = this.right;
+        let up = this.up
+        let xy = __vec3_3; 
+        xy.copy( front );
+        xy.subVectors( position, xy.multiplyScalar( front.dot(position) ) ); // rejection of position
+
+
+        // compute polar and azimuth angles
+        swingPolarAngle = front.angleTo( position );
+        swingAzimuthAngle = right.angleTo( xy );
+        if( up.dot( xy ) < 0 ){ swingAzimuthAngle = -swingAzimuthAngle + Math.PI*2;}
+
+        // constrain angles
+        if ( this.polar ){ swingPolarAngle = _constraintAngle( swingPolarAngle, this.polar[0], this.polar[1] );           }
+        if ( this.azimuth ){ swingAzimuthAngle = _constraintAngle( swingAzimuthAngle, this.azimuth[0], this.azimuth[1] ); }
+
+        // regenerate point with fixed angles
+        position.set( right.x, right.y, right.z );
+        position.applyAxisAngle( front, swingAzimuthAngle );
+        __vec3_1.crossVectors( position, front );
+        __vec3_1.normalize();
+        position.applyAxisAngle( __vec3_1, Math.PI * 0.5 - swingPolarAngle );
+    }
+}
+
+class JointHinge {
+    constructor(){
+        this.type = FABRIKSolver.JOINTTYPES.HINGE;
+        
+        this.front = new THREE.Vector3(0,0,1); // axis on which it rotates
+        this.right = new THREE.Vector3(1,0,0);
+
+        this.angles = null; // [min,max] rads
+    }
+
+    changeConstraints ( constraints ){
+        // fix axis
+        if ( !constraints.axis ){ __vec3_1.set(0,0,1); }// same direction as bone
+        else if ( constraints.axis.isVector3 ){ __vec3_1.copy( constraints.axis ); }
+        else{ __vec3_1.set( constraints.axis[0], constraints.axis[1], constraints.axis[2] ); }
+        
+        if ( __vec3_1.lengthSq < 0.00001 ){ __vec3_1.set(0,0,1); }
+        __vec3_1.normalize();
+        this.front.copy( __vec3_1 ); // front axis
+        
+        // compute right axis ( X = cross(Y,Z) ) check front axis is not Y
+        __vec3_1.set( 0,1,0 );
+        let dot = this.front.dot( __vec3_1 ); 
+        if ( dot > 0.9999 || dot < -0.9999 ){ __vec3_1.set( 1,0,0 ); } // axis is y, right will be +x
+        else{ 
+            __vec3_2.set( 0,1,0 ); // up
+            __vec3_1.crossVectors( __vec3_2, this.front ); // cross( Y, Z )
+            __vec3_1.normalize(); // X axis
+        }
+
+        this.right.copy( __vec3_1 ); // right axis
+
+        this.angles = null;
+        if ( !isNaN(constraints.min) &&  !isNaN(constraints.max) ){ 
+            this.angles = [0,Math.PI*2];
+            this.angles[0] = constraints.min % (Math.PI*2);
+            this.angles[1] = constraints.max % (Math.PI*2); 
+            if ( this.angles[0] < 0 ){ this.angles[0] += Math.PI*2; } 
+            if ( this.angles[1] < 0 ){ this.angles[1] += Math.PI*2; } 
+        }
+    }
+
+    // modifies position vector
+    applyConstraintSwing( position ){
+        __vec3_1.copy( this.front );
+
+        let dot = __vec3_1.dot( position );
+        if ( dot < -0.9999 && dot > 0.9999 ){ position.copy( this.right ); } // position parallel to rotation axis
+        else{ position.sub( __vec3_1.multiplyScalar( dot ) ); } // project
+
+        if ( !this.angles ){ return; }
+
+        
+        //TODO:  can be optimized to no use any angle, but cos and sin instead
+
+        let angle = this.right.angleTo(position); // [0,180]
+        
+        // fix angle range from [0,180] to [0,360]
+        __vec3_2.crossVectors( this.right, position );        
+        if (__vec3_2.dot( this.front ) < 0){ angle = -angle + Math.PI*2; }
+        
+        angle = _constraintAngle( angle, this.angles[0], this.angles[1] );
+        position.copy( this.right );
+        position.applyAxisAngle( this.front, angle );
+    }
+}
+
+FABRIKSolver.JOINTTYPES = { OMNI: 0, HINGE: 1, BALLSOCKET: 2 }; // omni is just the default no constrained joint
 
 
 export{ FABRIKSolver };
