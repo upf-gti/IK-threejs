@@ -3,8 +3,8 @@ import { OrbitControls } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/
 import { TransformControls } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/controls/TransformControls.js';
 import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/loaders/GLTFLoader.js';
 import { CCDIKSolver} from 'https://cdn.skypack.dev/three@0.136/examples/jsm/animation/CCDIKSolver.js';
-import {GUI} from 'https://cdn.skypack.dev/dat.gui'
 import { FABRIKSolver } from './FABRIKSolver.js'
+import { GUI } from './gui.js'
 import {Gizmo} from './gizmo.js'
 class App {
 
@@ -25,13 +25,14 @@ class App {
         this.skeletonHelper = null;
 
         this.msg = {};
-        this.gui = new GUI();
+
         this.chains = [];
+        this.fabrikChains = [];
         this.solvers = ["CCDIK", "FABRIK", "MIX"];
         this.solver = this.solvers[0];
         this.models = ["Eva", "LowPoly"];
         this.currentModel = this.models[1];
-
+        this.gui = new GUI(this);        
     
     }
 
@@ -49,7 +50,8 @@ class App {
         this.renderer.outputEncoding = THREE.sRGBEncoding;
         this.renderer.shadowMap.enabled = true;
         this.renderer.domElement.id = "webgl-canvas";
-        document.body.appendChild( this.renderer.domElement );
+        let canvasArea = document.getElementById("canvasarea");
+        canvasArea.appendChild( this.renderer.domElement );
 
         // camera
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.01, 1000);
@@ -210,7 +212,7 @@ class App {
             window.addEventListener("keydown", this.onKeyDown.bind(this));
             
             this.initCCDIK();
-            this.initGUI()
+            this.initGUI();
             this.initFabrik(true);
             this.animate();
             this.gizmo.begin(this.skeletonHelper)
@@ -344,27 +346,34 @@ class App {
     initFabrik(constraints) {
 
         this.FABRIKSolver = new FABRIKSolver( this.skeleton );
+        this.fabrikChains = [ 
+            {
+                name: "leftLeg",
+                bones: [this.bonesIdxs["LeftFoot"], this.bonesIdxs["LeftLeg"], this.bonesIdxs["LeftUpLeg"]], 
+                constraints:   [ 
+                        null,    
+                        {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, 0.0001 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   
+                        {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.45]}
+                    ],
+                target: this.IKTargetLeg // OBject3D (or equivalents) for now. It must be in the scene
+            },
+            {
+                name: "leftArm",
+                bones: [ this.bonesIdxs["LeftHand"], this.bonesIdxs["LeftForeArm"], this.bonesIdxs["LeftArm"]], 
+                constraints: [ 
+                        null,    
+                        {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, Math.PI*0.5 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   
+                        {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.5]}
+                    ], 
+                target: this.IKTargetArm // OBject3D (or equivalents) for now. It must be in the scene     
+            }
+        ];
+
         if(constraints) {
 
-            this.FABRIKSolver.createChain( 
-                [this.bonesIdxs["LeftFoot"], this.bonesIdxs["LeftLeg"], this.bonesIdxs["LeftUpLeg"]], 
-                [ 
-                    null,    
-                    {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, 0.0001 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   
-                    {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.45]}
-                ], 
-                this.IKTargetLeg // OBject3D (or equivalents) for now. It must be in the scene
-            ); 
+            this.FABRIKSolver.createChain( this.fabrikChains[0].bones, this.fabrikChains[0].constraints, this.fabrikChains[0].target  ); 
 
-            this.FABRIKSolver.createChain( 
-                [ this.bonesIdxs["LeftHand"], this.bonesIdxs["LeftForeArm"], this.bonesIdxs["LeftArm"]], 
-                [ 
-                    null,    
-                    {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, Math.PI*0.5 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   
-                    {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.5]}
-                ], 
-                this.IKTargetArm // OBject3D (or equivalents) for now. It must be in the scene
-            );  
+            this.FABRIKSolver.createChain( this.fabrikChains[1].bones, this.fabrikChains[1].constraints, this.fabrikChains[1].target );  
 
 
         }
@@ -383,99 +392,81 @@ class App {
     }
 
     initGUI() {
-        for(let f in this.gui.__folders) {
-            this.gui.removeFolder(this.gui.__folders[f]);
-        }
-        let character = this.gui.addFolder("Character");
-        character.add( {character: this.currentModel}, 'character', this.models).name('Character').onChange(v => {
-            this.currentModel = v;
-            this.initCharacter();
-        })
-
-        let solver = this.gui.addFolder("Solver");
-
-        solver.add({solver: this.solver}, 'solver', this.solvers).name("Solver").onChange(v => {
-            
-            if(v == "MIX") {
-                this.initFabrik(false);
-            }
-            else if(v == "FABRIK") {
-                this.initFabrik(true);
-            }
-            this.solver = v;
-            
-        })
-        solver.open();
-        for(let i = 0; i < this.chains.length; i++){
-            let folder = this.gui.addFolder(this.chains[i].name);
-            let bones = this.skeleton.bones;
-            for(let j = 0; j < this.chains[i].links.length; j++){
-                let subfolder = folder.addFolder("Bone "+ bones[this.chains[i].links[j].index].name);
-                
-                subfolder.add(this.chains[i].links[j], "limitX").listen().onChange(v => { 
-                    if(!v){ 
-                        this.chains[i].links[j].rotationMin.x = -2*Math.PI
-                        this.chains[i].links[j].rotationMax.x = 2*Math.PI
-                    }});
-                    subfolder.add(this.chains[i].links[j].rotationMin, "x", -2*Math.PI, 2*Math.PI)
-                .name("Min")           
-                .onChange(                      
-                    value => {
-                        this.chains[i].links[j].rotationMin.x = value;                
-                    }
-                ); 
-                subfolder.add(this.chains[i].links[j].rotationMax, "x", -2*Math.PI, 2*Math.PI) 
-                .name("Max")            
-                .onChange(                      
-                    value => {
-                        this.chains[i].links[j].rotationMax.x = value;               
-                    }
-                ); 
-
-                subfolder.add(this.chains[i].links[j], "limitY").listen().onChange(v => { 
-                    if(!v){ 
-                        this.chains[i].links[j].rotationMin.y = -2*Math.PI
-                        this.chains[i].links[j].rotationMax.y = 2*Math.PI
-                    }});
-                subfolder.add(this.chains[i].links[j].rotationMin, "y", -2*Math.PI, 2*Math.PI) 
-                .name("Min")         
-                .onChange(                    
-                    value => {
-                        this.chains[i].links[j].rotationMin.y = value;             
-                    }
-                ); 
-
-                subfolder.add(this.chains[i].links[j].rotationMax, "y", -2*Math.PI, 2*Math.PI) 
-                .name("Max")      
-                .onChange(          
-                    value => {
-                        this.chains[i].links[j].rotationMax.y = value;            
-                    }
-                ); 
-
-                subfolder.add(this.chains[i].links[j], "limitZ").listen().onChange(v => { 
-                    if(!v){ 
-                        this.chains[i].links[j].rotationMin.z = -2*Math.PI
-                        this.chains[i].links[j].rotationMax.z = 2*Math.PI
-                    }});
-                subfolder.add(this.chains[i].links[j].rotationMin, "z", -2*Math.PI, 2*Math.PI) 
-                .name("Min")             
-                .onChange(                     
-                    value => {
-                        this.chains[i].links[j].rotationMin.z = value;                                      
-                    }
-                ); 
-                subfolder.add(this.chains[i].links[j].rotationMax, "z", -2*Math.PI, 2*Math.PI) 
-                .name("Max")        
-                .onChange(                      
-                    value => {
-                        this.chains[i].links[j].rotationMax.z = value;                                          
-                    }
-                ); 
-            }
-
-        }
+        this.gui.updateSidePanel();
     }
+
+    addChain(chain, callback = null) {
+
+        if(!chain.origin)  {
+            console.error("No bone origin")
+            return;
+        }
+        if(!chain.endEffector)  {
+            console.error("No bone end-effector")
+            return;
+        }
+
+        //Add target to the scene
+        let target  = new THREE.Bone();
+        this.scene.add( target );
+        this.skeleton.bones.push(target)
+        this.skeleton.boneInverses.push(new THREE.Matrix4());
+        this.skeleton.boneMatrices =  [...this.skeleton.boneMatrices, ...new THREE.Matrix4().toArray()];
+
+        let transfControl = new TransformControls( this.camera, this.renderer.domElement );
+        transfControl.addEventListener( 'dragging-changed',  ( event ) => { this.controls.enabled = ! event.value; } );
+        transfControl.attach( target );
+        transfControl.size = 0.6;
+        this.scene.add( transfControl );
+        
+        //Create array of chain bones
+        let origin = this.skeleton.bones[chain.origin];
+        let endEffector = this.skeleton.bones[chain.endEffector];
+        let bones = [];
+        let found = false;
+        let bone = endEffector;
+        let links = [];
+        while(!found){
+            let i = this.skeleton.bones.indexOf(bone);
+            bones.push(i);
+            links.push({index:i, limitX: false, limitY: false, limitZ: false, rotationMin: new THREE.Vector3(-2*Math.PI, -2*Math.PI, -2*Math.PI), rotationMax: new THREE.Vector3(2*Math.PI, 2*Math.PI, 2*Math.PI)});
+            if(bone.name == origin.name)
+                found = true;
+            bone = bone.parent;
+            
+        }
+
+        let constraints = [];
+        constraints.length = bones.length;
+        constraints.fill(null);
+
+        // FABRIK CHAIN
+        let fabrikChain =  {
+            name: chain.name,
+            bones: bones, 
+            constraints:   constraints,
+            target: target // OBject3D (or equivalents) for now. It must be in the scene
+        }
+        this.FABRIKSolver.createChain(fabrikChain.bones, fabrikChain.constraints, fabrikChain.target);
+        this.fabrikChains.push(fabrikChain);
+
+        links.shift(0,1)
+        
+        //CCDIK CHAIN
+        let CCDIKChain =  {
+            name: chain.name,
+            effector: chain.endEffector,
+            target: this.skeleton.bones.length - 1, // OBject3D (or equivalents) for now. It must be in the scene
+            links:  links
+        }
+        
+        this.chains.push(CCDIKChain);
+        this.CCDIKSolver = new CCDIKSolver( this.model, this.chains );
+
+        if(callback)
+            callback();
+    }
+
     animate() {
 
         requestAnimationFrame( this.animate.bind(this) );
