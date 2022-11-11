@@ -97,13 +97,13 @@ class App {
 
     initCharacter() {
         function loadModel ( callback, glb  ){
-            let model = this.model = glb.scene;
-            model = glb.scene;
+            this.model = glb.scene;
+            
             //model.rotateOnAxis (new THREE.Vector3(1,0,0), -Math.PI/2);
-            model.castShadow = true;
+            this.model.castShadow = true;
 
             const textureLoader = new THREE.TextureLoader();
-            model.traverse( (object) => {
+            this.model.traverse( (object) => {
                 if ( object.isMesh || object.isSkinnedMesh ) {
                     object.material.side = THREE.FrontSide;
                     object.frustumCulled = false;
@@ -133,7 +133,7 @@ class App {
             }
 
             //this.skeleton = this.model.getObjectByName("Woman").skeleton;
-            model.skeleton = this.skeleton;
+            this.model.skeleton = this.skeleton;
             this.bonesIdxs = {};
             for(let i = 0; i < this.skeleton.bones.length; i++) {
                 let name = this.skeleton.bones[i].name.replace("mixamorig_", "");
@@ -156,17 +156,17 @@ class App {
                     this.bonesIdxs["LeftHand"] = i;
                 }
             }
-            model.name = "Character";
-            this.scene.add(model);
+            this.model.name = "Character";
+            this.scene.add(this.model);
             
-            let skeletonHelper = this.skeletonHelper = new THREE.SkeletonHelper( model );
+            let skeletonHelper = this.skeletonHelper = new THREE.SkeletonHelper( this.model );
             skeletonHelper.visible = true;
             skeletonHelper.frustumCulled = false;
             skeletonHelper.name = "SkeletonHelper";
             this.scene.add(skeletonHelper);
             
             // load the actual animation to play
-            this.mixer = new THREE.AnimationMixer( model );
+            //this.mixer = new THREE.AnimationMixer( model );
 
             if ( callback ){ callback (); }
 
@@ -211,9 +211,10 @@ class App {
             
             window.addEventListener("keydown", this.onKeyDown.bind(this));
             
-            this.initCCDIK();
+            // this.initCCDIK();
+            this.addChain({name:"Arm", origin: this.bonesIdxs["LeftArm"], endEffector: this.bonesIdxs["LeftHand"]})
             this.initGUI();
-            this.initFabrik(true);
+            // this.initFabrik(true);
             this.animate();
             this.gizmo.begin(this.skeletonHelper)
             $('#loading').fadeOut(); //hide();
@@ -407,31 +408,38 @@ class App {
         }
 
         //Add target to the scene
-        let target  = new THREE.Bone();
-        this.scene.add( target );
-        this.skeleton.bones.push(target)
-        this.skeleton.boneInverses.push(new THREE.Matrix4());
-        this.skeleton.boneMatrices =  [...this.skeleton.boneMatrices, ...new THREE.Matrix4().toArray()];
+        let target = null;
+        if(this['IKTarget'+chain.name] ){
+            target = this['IKTarget'+chain.name] ;
+        }else{
 
-        let transfControl = new TransformControls( this.camera, this.renderer.domElement );
-        transfControl.addEventListener( 'dragging-changed',  ( event ) => { this.controls.enabled = ! event.value; } );
-        transfControl.attach( target );
-        transfControl.size = 0.6;
-        this.scene.add( transfControl );
-        
+            target  = new THREE.Bone();
+            this['IKTarget'+chain.name] = target
+            this.scene.add( target );
+            let transfControl = new TransformControls( this.camera, this.renderer.domElement );
+            transfControl.addEventListener( 'dragging-changed',  ( event ) => { this.controls.enabled = ! event.value; } );
+            transfControl.attach( target );
+            transfControl.size = 0.6;
+            this.scene.add( transfControl );
+        }
+      
+        this.skeleton.bones.push(target)
+        this.skeleton.boneInverses.push(new THREE.Matrix4()) ;
+        this.skeleton.computeBoneTexture();
+        this.skeleton.update();
+
         //Create array of chain bones
         let origin = this.skeleton.bones[chain.origin];
         let endEffector = this.skeleton.bones[chain.endEffector];
         let bones = [];
-        let found = false;
+        
         let bone = endEffector;
         let links = [];
-        while(!found){
+        while(bone.name != origin.parent.name){
             let i = this.skeleton.bones.indexOf(bone);
             bones.push(i);
             links.push({index:i, limitX: false, limitY: false, limitZ: false, rotationMin: new THREE.Vector3(-2*Math.PI, -2*Math.PI, -2*Math.PI), rotationMax: new THREE.Vector3(2*Math.PI, 2*Math.PI, 2*Math.PI)});
-            if(bone.name == origin.name)
-                found = true;
+         
             bone = bone.parent;
             
         }
@@ -447,8 +455,9 @@ class App {
             constraints:   constraints,
             target: target // OBject3D (or equivalents) for now. It must be in the scene
         }
-        this.FABRIKSolver.createChain(fabrikChain.bones, fabrikChain.constraints, fabrikChain.target);
+        this.FABRIKSolver = new FABRIKSolver( this.skeleton );
         this.fabrikChains.push(fabrikChain);
+        this.FABRIKSolver.createChain(fabrikChain.bones, fabrikChain.constraints, fabrikChain.target);
 
         links.shift(0,1)
         
@@ -461,36 +470,37 @@ class App {
         }
         
         this.chains.push(CCDIKChain);
+        this.CCDIKSolver = null;
         this.CCDIKSolver = new CCDIKSolver( this.model, this.chains );
 
+        
         if(callback)
             callback();
     }
 
     animate() {
 
-        requestAnimationFrame( this.animate.bind(this) );
-
+        
         let delta = this.clock.getDelta();
         let et = this.clock.getElapsedTime();
-
-       // if ( this.mixer ) { this.mixer.update(delta); }
-
+        
+        // if ( this.mixer ) { this.mixer.update(delta); }
+        
         // EVA correct hand's size
         //this.model.getObjectByName("mixamorig_RightHand").scale.set( 0.85, 0.85, 0.85 );
         //this.model.getObjectByName("mixamorig_LeftHand").scale.set( 0.85, 0.85, 0.85 );
-
-
+        
+        
         if(this.CCDIKSolver && this.FABRIKSolver) {
             switch(this.solver) {
                 case "CCDIK":
                     this.CCDIKSolver.update();
                     break;
-
+                    
                 case "FABRIK":
                     this.FABRIKSolver.update();
                     break;
-
+                    
                 case "MIX":
                     this.FABRIKSolver.update();
                     
@@ -498,9 +508,10 @@ class App {
                     break;
             }
         }
-
+                
         this.gizmo.update(true, et);
         this.renderer.render( this.scene, this.camera );
+        requestAnimationFrame( this.animate.bind(this) );
     }
     
     onKeyDown ( e ){

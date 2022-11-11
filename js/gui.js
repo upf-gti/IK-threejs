@@ -167,14 +167,17 @@ class GUI {
             }
             widgets.addTitle("New chain");
             
-            widgets.addString("Name", newChain.name, {placeholder: "rightHand...", callback: (v) => {
+            widgets.addString("Name", newChain.name, {required: true, callback: (v) => {
                 newChain.name = v;
             }})
             
             widgets.widgets_per_row = 2;
             let origin = newChain.origin == null? null: this.editor.skeleton.bones[newChain.origin].name
-            widgets.addString("Origin bone", origin, { width: '85%', disabled: false})
-            widgets.addButton(null, "<img src='./data/imgs/mini-icon-trash.png'/>", {width: '15%', micro: true})
+            widgets.addString("Origin bone", origin, { width: '85%', disabled: true})
+            widgets.addButton(null, "<img src='./data/imgs/mini-icon-trash.png'/>", {width: '15%', micro: true, callback: v => {
+                newChain.origin = "";
+                widgets.refresh();
+            }})
             widgets.widgets_per_row = 1;
             widgets.addButton(null, "From selected", {callback: v => {
                 newChain.origin = this.editor.gizmo.selectedBone;
@@ -183,18 +186,34 @@ class GUI {
             
             let endEffector = newChain.endEffector == null? null: this.editor.skeleton.bones[newChain.endEffector].name
             widgets.widgets_per_row = 2;
-            widgets.addString("End-effector bone", endEffector, {  width: '85%', disabled: false})
-            widgets.addButton(null, "<img src='./data/imgs/mini-icon-trash.png'/>", { width: '15%', micro: true})
+            widgets.addString("End-effector bone", endEffector, {  width: '85%', disabled: true})
+            widgets.addButton(null, "<img src='./data/imgs/mini-icon-trash.png'/>", { width: '15%', micro: true, callback: v => {
+                newChain.endEffector = "";
+                widgets.refresh();
+            }})
             widgets.widgets_per_row = 1;
             widgets.addButton(null, "From selected", {callback: v => {
                 newChain.endEffector = this.editor.gizmo.selectedBone;
                 widgets.refresh();
             }})
 
-            widgets.addButton(null, "Add chain", {callback: v => {
+            let btn = widgets.addButton(null, "Add chain", {id: "chain-btn", callback: v => {
+                if(newChain.name == "") {
+                    alert("Name required");
+                    return;
+                }
+                if(newChain.origin == "") {
+                    alert("Origin bone required");
+                    return;
+                }
+                if(newChain.endEffector == "") {
+                    alert("End effector bone required");
+                    return;
+                }
                 this.editor.addChain(newChain,widgets.refresh.bind(widgets) );
              
             }})
+            btn.getElementsByTagName("button")[0].style["background-color"] =  "cadetblue";
         }
         widgets.on_refresh(options);
         
