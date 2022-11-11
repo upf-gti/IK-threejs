@@ -175,39 +175,39 @@ class App {
 
         function loadfinished() {
     
-            if(!this.IKTargetArm) {
-                this.IKTargetArm = new THREE.Bone();
-                this.scene.add( this.IKTargetArm );
-            }
-            this.skeleton.bones.push(this.IKTargetArm)
-            this.skeleton.boneInverses.push(new THREE.Matrix4());
-            this.skeleton.boneMatrices =  [...this.skeleton.boneMatrices, ...new THREE.Matrix4().toArray()];
+            // if(!this.IKTargetArm) {
+            //     this.IKTargetArm = new THREE.Bone();
+            //     this.scene.add( this.IKTargetArm );
+            // }
+            // this.skeleton.bones.push(this.IKTargetArm)
+            // this.skeleton.boneInverses.push(new THREE.Matrix4());
+            // this.skeleton.boneMatrices =  [...this.skeleton.boneMatrices, ...new THREE.Matrix4().toArray()];
 
-            if(!this.IKTargetLeg) {
-                this.IKTargetLeg = new THREE.Bone();
-                this.scene.add( this.IKTargetLeg );
-            }
-            this.skeleton.bones.push(this.IKTargetLeg)
-            this.skeleton.boneInverses.push(new THREE.Matrix4());
-            this.skeleton.boneMatrices =  [...this.skeleton.boneMatrices, ...new THREE.Matrix4().toArray()];
+            // if(!this.IKTargetLeg) {
+            //     this.IKTargetLeg = new THREE.Bone();
+            //     this.scene.add( this.IKTargetLeg );
+            // }
+            // this.skeleton.bones.push(this.IKTargetLeg)
+            // this.skeleton.boneInverses.push(new THREE.Matrix4());
+            // this.skeleton.boneMatrices =  [...this.skeleton.boneMatrices, ...new THREE.Matrix4().toArray()];
 
-            if(!this.transfControl && !this.transfControl2) {
+            // if(!this.transfControl && !this.transfControl2) {
 
-                this.transfControl = new TransformControls( this.camera, this.renderer.domElement );
-                this.transfControl.addEventListener( 'dragging-changed',  ( event ) => { this.controls.enabled = ! event.value; } );
-                this.transfControl.attach( this.IKTargetArm );
-                this.transfControl.size = 0.6;
-                this.scene.add( this.transfControl );
-                this.transfControl2 = new TransformControls( this.camera, this.renderer.domElement );
-                this.transfControl2.addEventListener( 'dragging-changed', ( event ) => { this.controls.enabled = ! event.value; } );
-                this.transfControl2.attach( this.IKTargetLeg );
-                this.transfControl2.size = 0.6;
-                this.scene.add( this.transfControl2 );
-            }
+            //     this.transfControl = new TransformControls( this.camera, this.renderer.domElement );
+            //     this.transfControl.addEventListener( 'dragging-changed',  ( event ) => { this.controls.enabled = ! event.value; } );
+            //     this.transfControl.attach( this.IKTargetArm );
+            //     this.transfControl.size = 0.6;
+            //     this.scene.add( this.transfControl );
+            //     this.transfControl2 = new TransformControls( this.camera, this.renderer.domElement );
+            //     this.transfControl2.addEventListener( 'dragging-changed', ( event ) => { this.controls.enabled = ! event.value; } );
+            //     this.transfControl2.attach( this.IKTargetLeg );
+            //     this.transfControl2.size = 0.6;
+            //     this.scene.add( this.transfControl2 );
+            // }
 
 
-            this.IKTargetArm.position.set(1, 1, 0)
-            this.IKTargetLeg.position.set(0.5, 0, 0)
+            // this.IKTargetArm.position.set(1, 1, 0)
+            // this.IKTargetLeg.position.set(0.5, 0, 0)
             
             window.addEventListener("keydown", this.onKeyDown.bind(this));
             
@@ -354,7 +354,7 @@ class App {
                 constraints:   [ 
                         null,    
                         {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, 0.0001 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   
-                        {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.45]}
+                        {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.PI*0.25 ], polar:[0, Math.PI*0.45]}
                     ],
                 target: this.IKTargetLeg // OBject3D (or equivalents) for now. It must be in the scene
             },
@@ -364,7 +364,7 @@ class App {
                 constraints: [ 
                         null,    
                         {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, Math.PI*0.5 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   
-                        {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.5]}
+                        {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.PI*0.25 ], polar:[0, Math.PI*0.5]}
                     ], 
                 target: this.IKTargetArm // OBject3D (or equivalents) for now. It must be in the scene     
             }
@@ -414,14 +414,15 @@ class App {
         }else{
 
             target  = new THREE.Bone();
-            this['IKTarget'+chain.name] = target
             this.scene.add( target );
             let transfControl = new TransformControls( this.camera, this.renderer.domElement );
             transfControl.addEventListener( 'dragging-changed',  ( event ) => { this.controls.enabled = ! event.value; } );
             transfControl.attach( target );
             transfControl.size = 0.6;
+            transfControl.name = "control"+ chain.name;
             this.scene.add( transfControl );
         }
+        target.name = 'IKTarget' + chain.name;
       
         this.skeleton.bones.push(target)
         this.skeleton.boneInverses.push(new THREE.Matrix4()) ;
@@ -476,6 +477,30 @@ class App {
         
         if(callback)
             callback();
+    }
+
+    removeChain(chainName, callback = null) {
+        for(let i = 0; i < this.chains.length; i++) {
+            if(this.chains[i].name == chainName) {
+                this.chains.splice(i,1);
+                this.fabrikChains.splice(i,1);
+                //remove chain from solvers
+                this.CCDIKSolver.iks.splice(i,1)
+                this.FABRIKSolver.chains.splice(i,1);
+                //remove bone related to target
+                let b = this.skeleton.bones.indexOf(this.skeleton.getBoneByName("IKTarget"+chainName));
+                this.skeleton.bones.splice(b,1);
+                this.skeleton.boneInverses.splice(b,1) ;
+                this.skeleton.computeBoneTexture();
+                this.skeleton.update();
+                //remove target from the scene
+                let t = this.scene.getObjectByName("IKTarget"+chainName);
+                this.scene.remove(t);
+                let c = this.scene.getObjectByName("control"+chainName);
+                c.detach(t);
+                this.scene.remove(c);
+            }
+        }
     }
 
     animate() {

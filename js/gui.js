@@ -1,5 +1,5 @@
 import * as datGUI from 'https://cdn.skypack.dev/dat.gui'
-
+import {FABRIKSolver} from './FABRIKSolver.js'
 class GUI {
 
     constructor(editor) {
@@ -71,26 +71,28 @@ class GUI {
             //Solver Selector
             widgets.addSection("Solver", { pretitle: makePretitle('gizmo') });
             widgets.addCombo("Solver",  this.editor.solver, { values : this.editor.solvers, callback: (v) => {
-                if(v == "MIX") {
-                    this.editor.initFabrik(false);
-                }
-                else if(v == "FABRIK") {
-                    this.editor.initFabrik(true);
-                }
+                // if(v == "MIX") {
+                //     this.editor.initFabrik(false);
+                // }
+                // else if(v == "FABRIK") {
+                //     this.editor.initFabrik(true);
+                // }
                 this.editor.solver = v;
                 widgets.refresh();
             }});
 
             //Chains
             let chains = widgets.addSection("Chains", {});
+            
+            /*----------------------------------------------- CCDIK Inspector -----------------------------------------------*/
             if(this.editor.solver == "CCDIK") {
 
                 for(let i = 0; i < this.editor.chains.length; i++){
-                    let folder = widgets.addTitle(this.editor.chains[i].name, {});
+                    widgets.addTitle(this.editor.chains[i].name, {width:'50%'});
                     
                     let bones = this.editor.skeleton.bones;
                     for(let j = 0; j < this.editor.chains[i].links.length; j++){
-                        let subfolder = widgets.addInfo("Bone", bones[this.editor.chains[i].links[j].index].name);
+                        widgets.addInfo("Bone", bones[this.editor.chains[i].links[j].index].name);
                         widgets.widgets_per_row = 3;
                         widgets.addCheckbox("limitX", this.editor.chains[i].links[j].limitX, {width: '100%', callback: (v) => { 
                             if(!v){ 
@@ -135,67 +137,97 @@ class GUI {
                                 this.editor.chains[i].links[j].rotationMax.z = value[2];                
                             }
                         }); 
-                        
                         widgets.addSeparator();    
                     }
+                    let rBtn = widgets.addButton(null, "Delete chain", { callback: v => {
+                        this.editor.removeChain(this.editor.chains[i].name);
+                        widgets.refresh();
+                    }})
+                    rBtn.getElementsByTagName("button")[0].style["background-color"] =  "indianred";
                     widgets.addSeparator();
                 }
             }
+            /*----------------------------------------------- FABRIK Inspector -----------------------------------------------*/
             else if(this.editor.solver == "FABRIK") {
 
                 for(let i = 0; i < this.editor.fabrikChains.length; i++){
-                    let folder = widgets.addTitle(this.editor.fabrikChains[i].name, {});
+                    widgets.addTitle(this.editor.fabrikChains[i].name, {});
                     
                     let bones = this.editor.skeleton.bones;
                     for(let j = this.editor.fabrikChains[i].bones.length - 1; j >= 0; j--){
-                        let subfolder = widgets.addInfo("Bone", bones[this.editor.fabrikChains[i].bones[j]].name);
+                        widgets.addInfo("Bone", bones[this.editor.fabrikChains[i].bones[j]].name);
                         widgets.widgets_per_row = 1;
                         let constraint = this.editor.fabrikChains[i].constraints[j];
                         if(constraint) {
+                            let types = Object.keys(FABRIKSolver.JOINTTYPES);
+                            widgets.addString("Constraint type", types[constraint.type - 1], {disabled: true});
                             for(let c in constraint) {
-
+                                if(c == "type") 
+                                    continue;
                                 widgets.addDefault(c, constraint[c])
                             }
+                            widgets.addButton(null, "Remove constraint", { callback: v => {
+                                this.editor.fabrikChains[i].constraints[j] = null;
+                                this.editor.FABRIKSolver.chains[i].constraints[j] = null;
+                                widgets.refresh();
+                            }})
+                        }else{
+                            widgets.addButton(null, "Add constraint", { callback: v => {
+                                this.createFabrikConstraintDialog(i, j, bones[this.editor.fabrikChains[i].bones[j]].name, widgets.refresh.bind(widgets));
+                            }})
                         }
-                        
-                        
-                        
                         widgets.addSeparator();    
                     }
+                    let rBtn = widgets.addButton(null, "Delete chain", { callback: v => {
+                        this.editor.removeChain(this.editor.chains[i].name);
+                        widgets.refresh();
+                    }})
+                    rBtn.getElementsByTagName("button")[0].style["background-color"] =  "indianred";
                     widgets.addSeparator();
                 }
             }
+
+            /** Add new chain */
             widgets.addTitle("New chain");
             
             widgets.addString("Name", newChain.name, {required: true, callback: (v) => {
                 newChain.name = v;
-            }})
+            }});
             
             widgets.widgets_per_row = 2;
+            
             let origin = newChain.origin == null? null: this.editor.skeleton.bones[newChain.origin].name
-            widgets.addString("Origin bone", origin, { width: '85%', disabled: true})
-            widgets.addButton(null, "<img src='./data/imgs/mini-icon-trash.png'/>", {width: '15%', micro: true, callback: v => {
-                newChain.origin = "";
-                widgets.refresh();
-            }})
-            widgets.widgets_per_row = 1;
-            widgets.addButton(null, "From selected", {callback: v => {
+            widgets.addString("Origin bone", origin, { width: '80%', disabled: true})
+            widgets.addButton(null, "+", {title: "From selected", width: '10%', micro: true, callback: v => {
                 newChain.origin = this.editor.gizmo.selectedBone;
                 widgets.refresh();
             }})
+            widgets.addButton(null, "<img src='./data/imgs/mini-icon-trash.png'/>", {width: '10%', micro: true, callback: v => {
+                newChain.origin = "";
+                widgets.refresh();
+            }})
+            // widgets.widgets_per_row = 1;
+            // widgets.addButton(null, "From selected", {callback: v => {
+            //     newChain.origin = this.editor.gizmo.selectedBone;
+            //     widgets.refresh();
+            // }})
             
             let endEffector = newChain.endEffector == null? null: this.editor.skeleton.bones[newChain.endEffector].name
             widgets.widgets_per_row = 2;
-            widgets.addString("End-effector bone", endEffector, {  width: '85%', disabled: true})
-            widgets.addButton(null, "<img src='./data/imgs/mini-icon-trash.png'/>", { width: '15%', micro: true, callback: v => {
+            widgets.addString("End-effector bone", endEffector, {  width: '80%', disabled: true});
+            widgets.addButton(null, "+", {title: "From selected", width: '10%', micro: true, callback: v => {
+                newChain.endEffector = this.editor.gizmo.selectedBone;
+                widgets.refresh();
+            }})
+            widgets.addButton(null, "<img src='./data/imgs/mini-icon-trash.png'/>", { width: '10%', micro: true, callback: v => {
                 newChain.endEffector = "";
                 widgets.refresh();
             }})
             widgets.widgets_per_row = 1;
-            widgets.addButton(null, "From selected", {callback: v => {
-                newChain.endEffector = this.editor.gizmo.selectedBone;
-                widgets.refresh();
-            }})
+            // widgets.addButton(null, "From selected", {callback: v => {
+            //     newChain.endEffector = this.editor.gizmo.selectedBone;
+            //     widgets.refresh();
+            // }})
 
             let btn = widgets.addButton(null, "Add chain", {id: "chain-btn", callback: v => {
                 if(newChain.name == "") {
@@ -223,6 +255,76 @@ class GUI {
         element.scrollTop = options.maxScroll ? maxScroll : (options.scroll ? options.scroll : 0);
     }
 
+    createFabrikConstraintDialog(chainIdx, chainBoneIdx, boneName, callback = null) {
+
+        let inspector = new LiteGUI.Inspector();
+        inspector.addTitle(boneName);
+        let types = Object.keys(FABRIKSolver.JOINTTYPES);
+        let constraint = {
+            type: FABRIKSolver.JOINTTYPES.BALLSOCKET,
+            ballsocket: {
+                twist: [ -Math.PI*0.25, Math.PI*0.25 ], 
+                polar:[0, Math.PI*0.45]
+            },
+            hinge: {
+                twist:[ 0, 0.0001 ], 
+                axis:[1,0,0], 
+                min: Math.PI, 
+                max: Math.PI * 1.8 
+            }
+        };
+        inspector.on_refresh = (o) => {
+            inspector.clear();
+            inspector.widgets_per_row = 1;
+            inspector.addCombo("Constraint type", types[constraint.type - 1], {values: types, callback: v => {
+                constraint.type = FABRIKSolver.JOINTTYPES[v];
+                inspector.refresh();
+            }});
+
+            if(constraint.type == FABRIKSolver.JOINTTYPES.HINGE ) {
+                for(let i in constraint.hinge) {
+                    inspector.addDefault(i, constraint.hinge[i], {callback: v => {
+                        constraint.hinge[i] = v;
+                    } })
+                }
+            }
+            else {
+                for(let i in constraint.ballsocket) {
+                    inspector.addDefault(i, constraint.ballsocket[i], {callback: v => {
+                        constraint.ballsocket[i] = v;
+                    } })
+                }
+            }
+            inspector.widgets_per_row = 2;
+            inspector.addButton(null, "Add", { callback: v => {
+                //add constraint to the chain               
+                if(constraint.type == FABRIKSolver.JOINTTYPES.HINGE) {
+                    constraint.hinge.type = constraint.type;
+                    this.editor.fabrikChains[chainIdx].constraints[chainBoneIdx] = constraint.hinge;
+                    this.editor.FABRIKSolver.chains[chainIdx].constraints[chainBoneIdx] = constraint.hinge;
+
+                    //--TO DO-- call FABRIKSolver.fixConstrants  ---> create addConstraint on solver?
+                }
+                else {
+                    constraint.hinge.type = constraint.type;
+                    this.editor.fabrikChains[chainIdx].constraints[chainBoneIdx] = constraint.ballsocket;
+                    this.editor.FABRIKSolver.chains[chainIdx].constraints[chainBoneIdx] = constraint.ballsocket;
+                    //--TO DO-- call FABRIKSolver.fixConstrants  ---> create addConstraint on solver?
+                }
+                dialog.close();
+                if(callback)
+                    callback();
+            }});
+            inspector.addButton(null, "Cancel", { callback: v => {
+                dialog.close();
+            }});
+        }
+        inspector.on_refresh();
+        let dialog = new LiteGUI.Dialog({title: "Bone constraints", close: true});
+        dialog.add(inspector);
+        dialog.show();
+    }
+    
     initGui() {
         for(let f in this.datGUI.__folders) {
             this.datGUI.removeFolder(this.datGUI.__folders[f]);
