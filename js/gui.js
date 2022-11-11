@@ -1,4 +1,4 @@
-import * as datGUI from 'https://cdn.skypack.dev/dat.gui'
+import * as THREE from 'three';
 import {FABRIKSolver} from './FABRIKSolver.js'
 class GUI {
 
@@ -95,49 +95,103 @@ class GUI {
                         widgets.addInfo("Bone", bones[this.editor.chains[i].links[j].index].name);
                         widgets.widgets_per_row = 3;
                         widgets.addCheckbox("limitX", this.editor.chains[i].links[j].limitX, {width: '100%', callback: (v) => { 
+                                if(!v){ 
+                                    this.editor.chains[i].links[j].rotationMin.x = -2*Math.PI
+                                    this.editor.chains[i].links[j].rotationMax.x = 2*Math.PI
+                                }
+                        }});
+                        widgets.addCheckbox("limitY", this.editor.chains[i].links[j].limitY, {width: '100%', callback: (v) => { 
                             if(!v){ 
-                                this.editor.chains[i].links[j].rotationMin.x = -2*Math.PI
-                            this.editor.chains[i].links[j].rotationMax.x = 2*Math.PI
-                        }}
-                    });
-                    widgets.addCheckbox("limitY", this.editor.chains[i].links[j].limitY, {width: '100%', callback: (v) => { 
-                        if(!v){ 
-                            this.editor.chains[i].links[j].rotationMin.y = -2*Math.PI
-                            this.editor.chains[i].links[j].rotationMax.y = 2*Math.PI
-                        }}
-                    });
-                    widgets.addCheckbox("limitZ", this.editor.chains[i].links[j].limitZ, {width: '100%', callback: (v) => { 
-                        if(!v){ 
-                            this.editor.chains[i].links[j].rotationMin.z = -2*Math.PI
-                            this.editor.chains[i].links[j].rotationMax.z = 2*Math.PI
-                        }}
-                    });
-                    widgets.widgets_per_row = 1;
-                    let rotMin =  [this.editor.chains[i].links[j].rotationMin.x, this.editor.chains[i].links[j].rotationMin.y, this.editor.chains[i].links[j].rotationMin.z];
-                    widgets.addVector3("Rotation min", rotMin, {min: -2*Math.PI, max: 2*Math.PI, callback:
-                        value => {
-                            let v = this.editor.chains[i].links[j];
-                            if(v.limitX)
-                            this.editor.chains[i].links[j].rotationMin.x = value[0];
-                            if(v.limitY)
-                                this.editor.chains[i].links[j].rotationMin.y = value[1];
-                                if(v.limitZ)
-                                this.editor.chains[i].links[j].rotationMin.z = value[2];
-                            }
-                        }); 
-                        let rotMax =  [this.editor.chains[i].links[j].rotationMax.x, this.editor.chains[i].links[j].rotationMax.y, this.editor.chains[i].links[j].rotationMax.z];
-                        widgets.addVector3("Rotation max", this.editor.chains[i].links[j].rotationMax, {min: -2*Math.PI, max: 2*Math.PI, callback:
-                            value => {
-                                let v = this.editor.chains[i].links[j];
-                                if(v.limitX)
-                                this.editor.chains[i].links[j].rotationMax.x = value[0];
-                                if(v.limitY)
-                                this.editor.chains[i].links[j].rotationMax.y = value[1];
-                                if(v.limitZ)
-                                this.editor.chains[i].links[j].rotationMax.z = value[2];                
-                            }
-                        }); 
-                        widgets.addSeparator();    
+                                this.editor.chains[i].links[j].rotationMin.y = -2*Math.PI
+                                this.editor.chains[i].links[j].rotationMax.y = 2*Math.PI
+                            }}
+                        });
+                        widgets.addCheckbox("limitZ", this.editor.chains[i].links[j].limitZ, {width: '100%', callback: (v) => { 
+                            if(!v){ 
+                                this.editor.chains[i].links[j].rotationMin.z = -2*Math.PI
+                                this.editor.chains[i].links[j].rotationMax.z = 2*Math.PI
+                            }}
+                        });
+                        widgets.widgets_per_row = 1;
+                        if(this.editor.chains[i].links[j].rotationMin) {
+                            let rotMin =  [this.editor.chains[i].links[j].rotationMin.x, this.editor.chains[i].links[j].rotationMin.y, this.editor.chains[i].links[j].rotationMin.z];
+                            widgets.addVector3("Rotation min", rotMin, {min: -2*Math.PI, max: 2*Math.PI, callback:
+                                value => {
+                                    let v = this.editor.chains[i].links[j];
+                                    if(v.limitX) {
+                                        this.editor.chains[i].links[j].rotationMin.x = value[0];
+                                        this.editor.CCDIKSolver.iks[i].links[j].rotationMin.x = value[0];
+                                    }
+                                    if(v.limitY) {
+                                        this.editor.chains[i].links[j].rotationMin.y = value[1];
+                                        this.editor.CCDIKSolver.iks[i].links[j].rotationMin.y = value[1];
+                                    }
+                                    if(v.limitZ) {
+                                        this.editor.chains[i].links[j].rotationMin.z = value[2];
+                                        this.editor.CCDIKSolver.iks[i].links[j].rotationMin.z = value[2];
+                                    }
+                                }
+                            }); 
+                        }
+                        else{
+                            widgets.addButton(null, "Add minimum rotation", {callback: v => {
+
+                                this.editor.chains[i].links[j].rotationMin = new THREE.Vector3(-2*Math.PI,   -2*Math.PI,   -2*Math.PI );
+                                this.editor.CCDIKSolver.iks[i].links[j].rotationMin = new THREE.Vector3(-2*Math.PI,   -2*Math.PI,   -2*Math.PI );
+                                widgets.refresh();
+                            }})
+                        }
+                        if(this.editor.chains[i].links[j].rotationMax)
+                        {                   
+                            let rotMax =  [this.editor.chains[i].links[j].rotationMax.x, this.editor.chains[i].links[j].rotationMax.y, this.editor.chains[i].links[j].rotationMax.z];
+                            widgets.addVector3("Rotation max", this.editor.chains[i].links[j].rotationMax, {min: -2*Math.PI, max: 2*Math.PI, callback:
+                                value => {
+                                    let v = this.editor.chains[i].links[j];
+                                    if(v.limitX){
+                                        this.editor.chains[i].links[j].rotationMax.x = value[0];
+                                        this.editor.CCDIKSolver.iks[i].links[j].rotationMax.x = value[0];
+                                    }
+                                    if(v.limitY) {
+                                        this.editor.chains[i].links[j].rotationMax.y = value[1];
+                                        this.editor.CCDIKSolver.iks[i].links[j].rotationMax.y = value[1];
+                                    }
+                                    if(v.limitZ) {
+                                        this.editor.chains[i].links[j].rotationMax.z = value[2];                
+                                        this.editor.CCDIKSolver.iks[i].links[j].rotationMax.z = value[2];                
+                                    }
+                                }
+                            }); 
+                            widgets.addSeparator();    
+                        }
+                        else {
+                            widgets.addButton(null, "Add maximum rotation", {callback: v => {
+
+                                this.editor.chains[i].links[j].rotationMax = new THREE.Vector3(2*Math.PI,   2*Math.PI,   2*Math.PI );
+                                this.editor.CCDIKSolver.iks[i].links[j].rotationMax = new THREE.Vector3(2*Math.PI,   2*Math.PI,   2*Math.PI );
+                                widgets.refresh();
+                            }})
+                        }
+
+                        if(this.editor.chains[i].links[j].limitation){
+                            let axis = this.editor.chains[i].links[j].limitation;
+                            widgets.addVector3("Rotation axis", [axis.x, axis.y, axis.z], {callback: v => {
+                                this.editor.chains[i].links[j].limitation.x = v[0];
+                                this.editor.chains[i].links[j].limitation.y = v[1];
+                                this.editor.chains[i].links[j].limitation.z = v[2];   
+                                
+                                this.editor.CCDIKSolver.iks[i].links[j].limitation.x = v[0];
+                                this.editor.CCDIKSolver.iks[i].links[j].limitation.y = v[1];
+                                this.editor.CCDIKSolver.iks[i].links[j].limitation.z = v[2];   
+                            }})
+                        }
+                        else {
+                            widgets.addButton(null, "Add rotation axis", {callback: v => {
+
+                                this.editor.chains[i].links[j].limitation = new THREE.Vector3(1,0,0);
+                                this.editor.CCDIKSolver.iks[i].links[j].limitation = new THREE.Vector3(1,0,0);
+                                widgets.refresh();
+                            }})
+                        }
                     }
                     let rBtn = widgets.addButton(null, "Delete chain", { callback: v => {
                         this.editor.removeChain(this.editor.chains[i].name);
@@ -324,124 +378,8 @@ class GUI {
         dialog.add(inspector);
         dialog.show();
     }
-    
-    initGui() {
-        for(let f in this.datGUI.__folders) {
-            this.datGUI.removeFolder(this.datGUI.__folders[f]);
-        }
-        let character = this.datGUI.addFolder("Character");
-        character.add( {character: this.editor.currentModel}, 'character', this.editor.models).name('Character').onChange(v => {
-            this.currentModel = v;
-            this.initCharacter();
-        })
 
-        let solver = this.datGUI.addFolder("Solver");
 
-        solver.add({solver: this.editor.solver}, 'solver', this.editor.solvers).name("Solver").onChange(v => {
-            
-            if(v == "MIX") {
-                this.editor.initFabrik(false);
-            }
-            else if(v == "FABRIK") {
-                this.editor.initFabrik(true);
-            }
-            this.editor.solver = v;
-            
-        })
-        solver.open();
-
-        let chains = this.datGUI.addFolder("Chains");
-
-        for(let i = 0; i < this.editor.chains.length; i++){
-            let folder = chains.addFolder(this.editor.chains[i].name);
-            let bones = this.editor.skeleton.bones;
-            for(let j = 0; j < this.editor.chains[i].links.length; j++){
-                let subfolder = folder.addFolder("Bone "+ bones[this.editor.chains[i].links[j].index].name);
-                
-                subfolder.add(this.editor.chains[i].links[j], "limitX").listen().onChange(v => { 
-                    if(!v){ 
-                        this.editor.chains[i].links[j].rotationMin.x = -2*Math.PI
-                        this.editor.chains[i].links[j].rotationMax.x = 2*Math.PI
-                    }});
-                    subfolder.add(this.editor.chains[i].links[j].rotationMin, "x", -2*Math.PI, 2*Math.PI)
-                .name("Min")           
-                .onChange(                      
-                    value => {
-                        this.editor.chains[i].links[j].rotationMin.x = value;                
-                    }
-                ); 
-                subfolder.add(this.editor.chains[i].links[j].rotationMax, "x", -2*Math.PI, 2*Math.PI) 
-                .name("Max")            
-                .onChange(                      
-                    value => {
-                        this.editor.chains[i].links[j].rotationMax.x = value;               
-                    }
-                ); 
-
-                subfolder.add(this.editor.chains[i].links[j], "limitY").listen().onChange(v => { 
-                    if(!v){ 
-                        this.chains[i].links[j].rotationMin.y = -2*Math.PI
-                        this.chains[i].links[j].rotationMax.y = 2*Math.PI
-                    }});
-                subfolder.add(this.editor.chains[i].links[j].rotationMin, "y", -2*Math.PI, 2*Math.PI) 
-                .name("Min")         
-                .onChange(                    
-                    value => {
-                        this.editor.chains[i].links[j].rotationMin.y = value;             
-                    }
-                ); 
-
-                subfolder.add(this.editor.chains[i].links[j].rotationMax, "y", -2*Math.PI, 2*Math.PI) 
-                .name("Max")      
-                .onChange(          
-                    value => {
-                        this.editor.chains[i].links[j].rotationMax.y = value;            
-                    }
-                ); 
-
-                subfolder.add(this.editor.chains[i].links[j], "limitZ").listen().onChange(v => { 
-                    if(!v){ 
-                        this.editor.chains[i].links[j].rotationMin.z = -2*Math.PI
-                        this.editor.chains[i].links[j].rotationMax.z = 2*Math.PI
-                    }});
-                subfolder.add(this.editor.chains[i].links[j].rotationMin, "z", -2*Math.PI, 2*Math.PI) 
-                .name("Min")             
-                .onChange(                     
-                    value => {
-                        this.editor.chains[i].links[j].rotationMin.z = value;                                      
-                    }
-                ); 
-                subfolder.add(this.editor.chains[i].links[j].rotationMax, "z", -2*Math.PI, 2*Math.PI) 
-                .name("Max")        
-                .onChange(                      
-                    value => {
-                        this.editor.chains[i].links[j].rotationMax.z = value;                                          
-                    }
-                ); 
-            }
-
-        }
-        chains.add({ addChain: this.addChain}, "addChain").name("New chain");
-    }
-
-    addChain() {
-        let options = {
-            title: "New chain",
-            close: 'fade'
-        };
-		
-		
-		let dialog = new LiteGUI.Dialog( options );
-        let inspector = new LiteGUI.Inspector();
-        let origin = inspector.addString("Origin") ;
-        let btn_origin = inspector.addButton("Select");
-        dialog.add(inspector)
-		if(!options.noclose)
-			dialog.addButton("Close",{ close: true });
-		dialog.makeModal('fade');
-		dialog.show();
-      
-    }
     resize() {
       
        
