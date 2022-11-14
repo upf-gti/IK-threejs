@@ -70,8 +70,8 @@ class App {
 
         // so the screen is not black while loading
         this.renderer.render( this.scene, this.camera );
-        this.gizmo = new Gizmo(this);
         this.initCharacter();
+        this.gizmo = new Gizmo(this);
         
         window.addEventListener( 'resize', this.onWindowResize.bind(this) );
         
@@ -173,7 +173,6 @@ class App {
             character.skeletonHelper.name = "SkeletonHelper_" + character.name;
             character.skeletonHelper.visible = this.currentModel.name == character.name;;
             this.scene.add(character.skeletonHelper);
-            
             // load the actual animation to play
             //this.mixer = new THREE.AnimationMixer( model );
 
@@ -189,6 +188,7 @@ class App {
             
             this.addChain(character, {name:"Arm", origin: character.bonesIdxs["LeftArm"], endEffector: character.bonesIdxs["LeftHand"]}, null, new THREE.Vector3(1,1,0));
             this.initGUI();
+
             if(this.currentModel.name == character.name)
                 this.gizmo.begin(character.skeletonHelper)
             this.animate();
@@ -511,7 +511,8 @@ class App {
 
     animate() {
 
-        
+        requestAnimationFrame( this.animate.bind(this) );
+
         let delta = this.clock.getDelta();
         let et = this.clock.getElapsedTime();
         
@@ -542,7 +543,6 @@ class App {
                 
         this.gizmo.update(true, et);
         this.renderer.render( this.scene, this.camera );
-        requestAnimationFrame( this.animate.bind(this) );
     }
     
     onKeyDown ( e ){

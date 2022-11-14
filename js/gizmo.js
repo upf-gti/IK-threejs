@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { ShaderChunk } from "./utils.js";
 import { TransformControls } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/controls/TransformControls.js';
 
 class Gizmo {
@@ -70,19 +71,19 @@ class Gizmo {
         this.skeletonHelper = skeletonHelper;
 
         // point cloud for bones
-        // const pointsShaderMaterial = new THREE.ShaderMaterial( {
-        //     uniforms: {
-        //         color: { value: new THREE.Color( 0xffffff ) },
-        //         pointTexture: { value: new THREE.TextureLoader().load( 'data/imgs/disc.png' ) },
-        //         alphaTest: { value: 0.9 }
-        //     },
-        //     depthTest: false,
-        //     vertexShader: ShaderChunk["Point"].vertexshader,
-        //     fragmentShader: ShaderChunk["Point"].fragmentshader
-        // });
-        const pointsShaderMaterial = new THREE.MeshBasicMaterial({depthTest: false});
+        const pointsShaderMaterial = new THREE.ShaderMaterial( {
+            uniforms: {
+                color: { value: new THREE.Color( 0xfffff ) },
+                pointTexture: { value: new THREE.TextureLoader().load( 'data/imgs/disc.png' ) },
+                alphaTest: { value: 0.9 }
+            },
+            depthTest: false,
+            vertexShader: ShaderChunk["Point"].vertexshader,
+            fragmentShader: ShaderChunk["Point"].fragmentshader
+        });
+        // const pointsShaderMaterial = new THREE.MeshBasicMaterial({depthTest: false});
         const geometry = new THREE.BufferGeometry();
-
+       
         let vertices = [];
 
         for(let bone of skeletonHelper.bones) {
@@ -96,13 +97,13 @@ class Gizmo {
         geometry.setFromPoints(vertices);
         
         const positionAttribute = geometry.getAttribute( 'position' );
-        const size = 0.05;
-        geometry.setAttribute( 'size', new THREE.Float32BufferAttribute( new Array(positionAttribute.count).fill(size), 0.1 ) );
+        const size = 0.1;
+        geometry.setAttribute( 'size', new THREE.Float32BufferAttribute( new Array(positionAttribute.count).fill(size), 1 ) );
 
         this.bonePoints = new THREE.Points( geometry, pointsShaderMaterial );
         this.bonePoints.name = "GizmoPoints";
+        this.bonePoints.renderOrder = 1;
         this.scene.add( this.bonePoints );
-        
         this.raycaster = new THREE.Raycaster();
         this.raycaster.params.Points.threshold = 0.05;
         
@@ -234,7 +235,7 @@ class Gizmo {
         if(state) this.updateBones(dt);
 
         if(this.selectedBone == null || !this.mustUpdate)
-        return;
+            return;
 
         this.transform.attach( this.skeletonHelper.bones[this.selectedBone] );
         this.mustUpdate = false; 
@@ -261,7 +262,7 @@ class Gizmo {
         const geometry = this.bonePoints.geometry;
         const positionAttribute = geometry.getAttribute( 'position' );
         const colors = [];
-        const color = new THREE.Color(0.9, 0.9, 0.3);
+        const color = new THREE.Color(95/255, 158/255, 160/255);
         const colorSelected = new THREE.Color(0.33, 0.8, 0.75);
 
         for ( let i = 0, l = positionAttribute.count; i < l; i ++ ) {
@@ -319,6 +320,12 @@ class Gizmo {
 
         this.updateBones();
         this.updateTracks();
+    }
+
+    setVisibility(v) {
+        if(this.bonePoints) {
+            this.bonePoints.visible = v;
+        }
     }
     
 };

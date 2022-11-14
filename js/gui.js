@@ -5,7 +5,7 @@ class GUI {
     constructor(editor) {
        
         this.editor = editor;
-
+        this.showSkeleton = true;
         this.boneProperties = {};
         this.create();
     }
@@ -67,9 +67,15 @@ class GUI {
                 // this.editor.currentModel = v;
                 // this.editor.initCharacter();
                 this.editor.changeCurrentModel(v);
+                this.showSkeleton = true;
                 widgets.refresh();
             }});
 
+            widgets.addCheckbox("Show skeleton", this.showSkeleton, {callback: v => {
+                this.showSkeleton = v;
+                this.editor.currentModel.skeletonHelper.visible = v;
+                this.editor.gizmo.setVisibility(v);
+            }})
             //Solver Selector
             widgets.addSection("Solver", { pretitle: makePretitle('gizmo') });
             widgets.addCombo("Solver",  this.editor.solver, { values : this.editor.solvers, callback: (v) => {
