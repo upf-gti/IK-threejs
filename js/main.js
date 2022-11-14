@@ -6,6 +6,7 @@ import { CCDIKSolver} from 'https://cdn.skypack.dev/three@0.136/examples/jsm/ani
 import { FABRIKSolver } from './FABRIKSolver.js'
 import { GUI } from './gui.js'
 import {Gizmo} from './gizmo.js'
+
 class App {
 
     constructor() {
@@ -22,15 +23,20 @@ class App {
         // current model selected
         this.model = null;
         this.mixer = null;
-        this.skeletonHelper = null;
+        //this.skeletonHelper = null;
 
         this.msg = {};
 
-        this.chains = [];
-        this.fabrikChains = [];
+        // this.chains = [];
+        // this.fabrikChains = [];
         this.solvers = ["CCDIK", "FABRIK", "MIX"];
         this.solver = this.solvers[0];
-        this.models = ["Eva", "LowPoly"];
+        this.modelsNames = ["Eva", "LowPoly"];
+        // this.currentModel = this.models[0];
+        let eva = new Character("Eva", "./data/models/Eva_Y2.glb");
+        let lowPoly = new Character("LowPoly", "./data/models/lowPoly/woman.gltf");
+        this.models = [eva, lowPoly];
+        
         this.currentModel = this.models[1];
         this.gui = new GUI(this);        
     
@@ -96,135 +102,121 @@ class App {
     }
 
     initCharacter() {
-        function loadModel ( callback, glb  ){
-            this.model = glb.scene;
+        
+
+        function loadModel ( callback, character, glb ){
+            character.model = glb.scene;
             
             //model.rotateOnAxis (new THREE.Vector3(1,0,0), -Math.PI/2);
-            this.model.castShadow = true;
-
+            character.model.castShadow = true;
             const textureLoader = new THREE.TextureLoader();
-            this.model.traverse( (object) => {
+            character.model.traverse( (object) => {
                 if ( object.isMesh || object.isSkinnedMesh ) {
                     object.material.side = THREE.FrontSide;
                     object.frustumCulled = false;
                     object.castShadow = true;
                     object.receiveShadow = true;
                     // woman.gltf
-                    if(this.currentModel == "LowPoly") {
+                    if(character.name == "LowPoly") {
                         textureLoader.load( "./data/models/lowPoly/woman.png", (texture) => { 
                             object.material = new THREE.MeshStandardMaterial( {side: THREE.FrontSide, map: texture, roughness: 0.7, metalness: 0.1} );
                             object.material.map.flipY = false;
                         } );
                     }
-                    this.skeleton = object.skeleton;
+                    character.skeleton = object.skeleton;
                     // object.pose()
                 }
                     
             } );
                 
-            if(this.currentModel == "Eva") {
+            if(character.name == "Eva") {
                 //EVA
-                this.model.scale.set(0.01,0.01,0.01);
+                character.model.scale.set(0.01,0.01,0.01);
             } else{
                 //woman.gltf
                 // this.model.position.set(0.05, 0.8, 0 );
                 // this.model.rotateY(-Math.PI/2)
-                this.model.scale.set(0.25,0.25,0.25);
+                character.model.scale.set(0.25,0.25,0.25);
             }
 
             //this.skeleton = this.model.getObjectByName("Woman").skeleton;
-            this.model.skeleton = this.skeleton;
-            this.bonesIdxs = {};
-            for(let i = 0; i < this.skeleton.bones.length; i++) {
-                let name = this.skeleton.bones[i].name.replace("mixamorig_", "");
+            character.model.skeleton = character.skeleton;
+            character.bonesIdxs = {};
+            for(let i = 0; i < character.skeleton.bones.length; i++) {
+                let name = character.skeleton.bones[i].name.replace("mixamorig_", "");
                 if(name == "LeftUpLeg") {
-                    this.bonesIdxs["LeftUpLeg"] = i;
+                    character.bonesIdxs["LeftUpLeg"] = i;
                 }
                 else if(name == "LeftLeg") {
-                    this.bonesIdxs["LeftLeg"] = i;
+                    character.bonesIdxs["LeftLeg"] = i;
                 }
                 else if(name == "LeftFoot") {
-                    this.bonesIdxs["LeftFoot"] = i;
+                    character.bonesIdxs["LeftFoot"] = i;
                 }
                 else if(name == "LeftArm") {
-                    this.bonesIdxs["LeftArm"] = i;
+                    character.bonesIdxs["LeftArm"] = i;
                 }
                 else if(name == "LeftForeArm") {
-                    this.bonesIdxs["LeftForeArm"] = i;
+                    character.bonesIdxs["LeftForeArm"] = i;
                 }
                 else if(name == "LeftHand") {
-                    this.bonesIdxs["LeftHand"] = i;
+                    character.bonesIdxs["LeftHand"] = i;
                 }
             }
-            this.model.name = "Character";
-            this.scene.add(this.model);
+            character.model.name = "Character_"+character.name;
+            character.model.visible = this.currentModel.name == character.name;
+            this.scene.add(character.model);
             
-            let skeletonHelper = this.skeletonHelper = new THREE.SkeletonHelper( this.model );
-            skeletonHelper.visible = true;
-            skeletonHelper.frustumCulled = false;
-            skeletonHelper.name = "SkeletonHelper";
-            this.scene.add(skeletonHelper);
+            character.skeletonHelper = new THREE.SkeletonHelper( character.model );
+            character.skeletonHelper.visible = true;
+            character.skeletonHelper.frustumCulled = false;
+            character.skeletonHelper.name = "SkeletonHelper_" + character.name;
+            character.skeletonHelper.visible = this.currentModel.name == character.name;;
+            this.scene.add(character.skeletonHelper);
             
             // load the actual animation to play
             //this.mixer = new THREE.AnimationMixer( model );
 
-            if ( callback ){ callback (); }
+            if ( callback ){ callback(character); }
 
         }
 
 
-        function loadfinished() {
+        function loadfinished(character) {
     
-            // if(!this.IKTargetArm) {
-            //     this.IKTargetArm = new THREE.Bone();
-            //     this.scene.add( this.IKTargetArm );
-            // }
-            // this.skeleton.bones.push(this.IKTargetArm)
-            // this.skeleton.boneInverses.push(new THREE.Matrix4());
-            // this.skeleton.boneMatrices =  [...this.skeleton.boneMatrices, ...new THREE.Matrix4().toArray()];
-
-            // if(!this.IKTargetLeg) {
-            //     this.IKTargetLeg = new THREE.Bone();
-            //     this.scene.add( this.IKTargetLeg );
-            // }
-            // this.skeleton.bones.push(this.IKTargetLeg)
-            // this.skeleton.boneInverses.push(new THREE.Matrix4());
-            // this.skeleton.boneMatrices =  [...this.skeleton.boneMatrices, ...new THREE.Matrix4().toArray()];
-
-            // if(!this.transfControl && !this.transfControl2) {
-
-            //     this.transfControl = new TransformControls( this.camera, this.renderer.domElement );
-            //     this.transfControl.addEventListener( 'dragging-changed',  ( event ) => { this.controls.enabled = ! event.value; } );
-            //     this.transfControl.attach( this.IKTargetArm );
-            //     this.transfControl.size = 0.6;
-            //     this.scene.add( this.transfControl );
-            //     this.transfControl2 = new TransformControls( this.camera, this.renderer.domElement );
-            //     this.transfControl2.addEventListener( 'dragging-changed', ( event ) => { this.controls.enabled = ! event.value; } );
-            //     this.transfControl2.attach( this.IKTargetLeg );
-            //     this.transfControl2.size = 0.6;
-            //     this.scene.add( this.transfControl2 );
-            // }
-
-
-            // this.IKTargetArm.position.set(1, 1, 0)
-            // this.IKTargetLeg.position.set(0.5, 0, 0)
             
             window.addEventListener("keydown", this.onKeyDown.bind(this));
             
-            // this.initCCDIK();
-            this.addChain({name:"Arm", origin: this.bonesIdxs["LeftArm"], endEffector: this.bonesIdxs["LeftHand"]})
+            this.addChain(character, {name:"Arm", origin: character.bonesIdxs["LeftArm"], endEffector: character.bonesIdxs["LeftHand"]}, null, new THREE.Vector3(1,1,0));
             this.initGUI();
-            // this.initFabrik(true);
+            if(this.currentModel.name == character.name)
+                this.gizmo.begin(character.skeletonHelper)
             this.animate();
-            this.gizmo.begin(this.skeletonHelper)
             $('#loading').fadeOut(); //hide();
         }
 
-        this.scene.remove(this.scene.getObjectByName("Character"));
-        this.scene.remove(this.scene.getObjectByName("SkeletonHelper"));
-        let path = './data/models/';
-        path += (this.currentModel == 'LowPoly') ? 'lowPoly/woman.gltf' : 'Eva_Y2.glb';
-        this.loaderGLB.load( path, loadModel.bind( this, loadfinished.bind(this) ) );
+        // this.scene.remove(this.scene.getObjectByName("Character"));
+        // this.scene.remove(this.scene.getObjectByName("SkeletonHelper"));
+        // let path = './data/models/';
+        // path += (this.currentModel == 'LowPoly') ? 'lowPoly/woman.gltf' : 'Eva_Y2.glb';
+        for(let i in this.models) {
+            this.loaderGLB.load( this.models[i].url, loadModel.bind( this, loadfinished.bind(this),  this.models[i] ) );
+        }
+        
+    }
+    changeCurrentModel(name) {
+
+        this.scene.getObjectByName("Character_"+this.currentModel.name).visible = false;
+        this.scene.getObjectByName("SkeletonHelper_"+this.currentModel.name).visible = false;
+        for(let i in this.models) {
+            if(this.models[i].name == name) {
+                this.currentModel = this.models[i];
+                this.gizmo.begin(this.models[i].skeletonHelper);
+                this.scene.getObjectByName("Character_"+name).visible = true;
+                this.scene.getObjectByName("SkeletonHelper_"+name).visible = true;
+                break;
+            }
+        }
     }
     /**
     * @description
@@ -396,7 +388,7 @@ class App {
         this.gui.updateSidePanel();
     }
 
-    addChain(chain, callback = null) {
+    addChain(character, chain, callback = null, targetPos = new THREE.Vector3()) {
 
         if(!chain.origin)  {
             console.error("No bone origin")
@@ -414,6 +406,7 @@ class App {
         }else{
 
             target  = new THREE.Bone();
+            target.position.copy(targetPos);
             this.scene.add( target );
             let transfControl = new TransformControls( this.camera, this.renderer.domElement );
             transfControl.addEventListener( 'dragging-changed',  ( event ) => { this.controls.enabled = ! event.value; } );
@@ -424,20 +417,20 @@ class App {
         }
         target.name = 'IKTarget' + chain.name;
       
-        this.skeleton.bones.push(target)
-        this.skeleton.boneInverses.push(new THREE.Matrix4()) ;
-        this.skeleton.computeBoneTexture();
-        this.skeleton.update();
+        character.skeleton.bones.push(target)
+        character.skeleton.boneInverses.push(new THREE.Matrix4()) ;
+        character.skeleton.computeBoneTexture();
+        character.skeleton.update();
 
         //Create array of chain bones
-        let origin = this.skeleton.bones[chain.origin];
-        let endEffector = this.skeleton.bones[chain.endEffector];
+        let origin = character.skeleton.bones[chain.origin];
+        let endEffector = character.skeleton.bones[chain.endEffector];
         let bones = [];
         
         let bone = endEffector;
         let links = [];
         while(bone.name != origin.parent.name){
-            let i = this.skeleton.bones.indexOf(bone);
+            let i = character.skeleton.bones.indexOf(bone);
             bones.push(i);
             links.push({index:i, limitX: false, limitY: false, limitZ: false, rotationMin: new THREE.Vector3(-2*Math.PI, -2*Math.PI, -2*Math.PI), rotationMax: new THREE.Vector3(2*Math.PI, 2*Math.PI, 2*Math.PI)});
          
@@ -456,9 +449,9 @@ class App {
             constraints:   constraints,
             target: target // OBject3D (or equivalents) for now. It must be in the scene
         }
-        this.FABRIKSolver = new FABRIKSolver( this.skeleton );
-        this.fabrikChains.push(fabrikChain);
-        this.FABRIKSolver.createChain(fabrikChain.bones, fabrikChain.constraints, fabrikChain.target);
+        character.FABRIKSolver = new FABRIKSolver( character.skeleton );
+        //character.fabrikChains.push(fabrikChain);
+        character.FABRIKSolver.createChain(fabrikChain.bones, fabrikChain.constraints, fabrikChain.target);
 
         links.shift(0,1)
         
@@ -466,33 +459,33 @@ class App {
         let CCDIKChain =  {
             name: chain.name,
             effector: chain.endEffector,
-            target: this.skeleton.bones.length - 1, // OBject3D (or equivalents) for now. It must be in the scene
+            target: character.skeleton.bones.length - 1, // OBject3D (or equivalents) for now. It must be in the scene
             links:  links
         }
-        
-        this.chains.push(CCDIKChain);
-        this.CCDIKSolver = null;
-        this.CCDIKSolver = new CCDIKSolver( this.model, this.chains );
+        //character.CCDIKChain.iks.push(CCDIKChain)
+        character.chains.push(CCDIKChain);
+        character.CCDIKSolver = null;
+        character.CCDIKSolver = new CCDIKSolver( character.model, character.chains );
 
         
         if(callback)
             callback();
     }
 
-    removeChain(chainName, callback = null) {
-        for(let i = 0; i < this.chains.length; i++) {
-            if(this.chains[i].name == chainName) {
-                this.chains.splice(i,1);
-                this.fabrikChains.splice(i,1);
+    removeChain(character, chainName, callback = null) {
+        for(let i = 0; i < character.chains.length; i++) {
+            if(character.chains[i].name == chainName) {
+                character.chains.splice(i,1);
+                // character.fabrikChains.splice(i,1);
                 //remove chain from solvers
-                this.CCDIKSolver.iks.splice(i,1)
-                this.FABRIKSolver.chains.splice(i,1);
+                character.CCDIKSolver.iks.splice(i,1)
+                character.FABRIKSolver.chains.splice(i,1);
                 //remove bone related to target
-                let b = this.skeleton.bones.indexOf(this.skeleton.getBoneByName("IKTarget"+chainName));
-                this.skeleton.bones.splice(b,1);
-                this.skeleton.boneInverses.splice(b,1) ;
-                this.skeleton.computeBoneTexture();
-                this.skeleton.update();
+                let b = character.skeleton.bones.indexOf(character.skeleton.getBoneByName("IKTarget"+chainName));
+                character.skeleton.bones.splice(b,1);
+                character.skeleton.boneInverses.splice(b,1) ;
+                character.skeleton.computeBoneTexture();
+                character.skeleton.update();
                 //remove target from the scene
                 let t = this.scene.getObjectByName("IKTarget"+chainName);
                 this.scene.remove(t);
@@ -516,20 +509,20 @@ class App {
         //this.model.getObjectByName("mixamorig_LeftHand").scale.set( 0.85, 0.85, 0.85 );
         
         
-        if(this.CCDIKSolver && this.FABRIKSolver) {
+        if(this.currentModel.CCDIKSolver && this.currentModel.FABRIKSolver) {
             switch(this.solver) {
                 case "CCDIK":
-                    this.CCDIKSolver.update();
+                    this.currentModel.CCDIKSolver.update();
                     break;
                     
                 case "FABRIK":
-                    this.FABRIKSolver.update();
+                    this.currentModel.FABRIKSolver.update();
                     break;
                     
                 case "MIX":
-                    this.FABRIKSolver.update();
+                    this.currentModel.FABRIKSolver.update();
                     
-                    this.CCDIKSolver.update();
+                    this.currentModel.CCDIKSolver.update();
                     break;
             }
         }
@@ -562,6 +555,19 @@ class App {
         this.renderer.setSize( window.innerWidth, window.innerHeight );
     }
 
+}
+
+class Character {
+    constructor(name, url) {
+        this.name = name;
+        this.url = url;
+        this.model = null;
+        this.chains = [];
+        this.skeleton = null;
+        this.skeletonHelper = null;
+        this.FABRIKSolver = null;
+        this.CCDIKSolver = null;
+    }
 }
 
 let app = new App();

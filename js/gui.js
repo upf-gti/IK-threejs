@@ -63,9 +63,10 @@ class GUI {
             widgets.clear();
             //Character Selector
             widgets.addSection("Character", { pretitle: makePretitle('stickman') });
-            widgets.addCombo("Model",  this.editor.currentModel, { values : this.editor.models, callback: (v) => {
-                this.editor.currentModel = v;
-                this.editor.initCharacter();
+            widgets.addCombo("Model",  this.editor.currentModel.name, { values : this.editor.modelsNames, callback: (v) => {
+                // this.editor.currentModel = v;
+                // this.editor.initCharacter();
+                this.editor.changeCurrentModel(v);
             }});
 
             //Solver Selector
@@ -82,53 +83,53 @@ class GUI {
             }});
 
             //Chains
-            let chains = widgets.addSection("Chains", {});
+             widgets.addSection("Chains", {});
             
             /*----------------------------------------------- CCDIK Inspector -----------------------------------------------*/
             if(this.editor.solver == "CCDIK") {
-
-                for(let i = 0; i < this.editor.chains.length; i++){
-                    widgets.addTitle(this.editor.chains[i].name, {width:'50%'});
+                let chains = this.editor.currentModel.CCDIKSolver.iks;
+                for(let i = 0; i < chains.length; i++){
+                    widgets.addTitle(chains[i].name, {width:'50%'});
                     
-                    let bones = this.editor.skeleton.bones;
-                    for(let j = 0; j < this.editor.chains[i].links.length; j++){
-                        widgets.addInfo("Bone", bones[this.editor.chains[i].links[j].index].name);
+                    let bones = this.editor.currentModel.skeleton.bones;
+                    for(let j = 0; j < chains[i].links.length; j++){
+                        widgets.addInfo("Bone", bones[chains[i].links[j].index].name);
                         widgets.widgets_per_row = 3;
-                        widgets.addCheckbox("limitX", this.editor.chains[i].links[j].limitX, {width: '100%', callback: (v) => { 
+                        widgets.addCheckbox("limitX", chains[i].links[j].limitX, {width: '100%', callback: (v) => { 
                                 if(!v){ 
-                                    this.editor.chains[i].links[j].rotationMin.x = -2*Math.PI
-                                    this.editor.chains[i].links[j].rotationMax.x = 2*Math.PI
+                                    chains[i].links[j].rotationMin.x = -2*Math.PI
+                                    chains[i].links[j].rotationMax.x = 2*Math.PI
                                 }
                         }});
-                        widgets.addCheckbox("limitY", this.editor.chains[i].links[j].limitY, {width: '100%', callback: (v) => { 
+                        widgets.addCheckbox("limitY", chains[i].links[j].limitY, {width: '100%', callback: (v) => { 
                             if(!v){ 
-                                this.editor.chains[i].links[j].rotationMin.y = -2*Math.PI
-                                this.editor.chains[i].links[j].rotationMax.y = 2*Math.PI
+                                chains[i].links[j].rotationMin.y = -2*Math.PI
+                                chains[i].links[j].rotationMax.y = 2*Math.PI
                             }}
                         });
-                        widgets.addCheckbox("limitZ", this.editor.chains[i].links[j].limitZ, {width: '100%', callback: (v) => { 
+                        widgets.addCheckbox("limitZ", chains[i].links[j].limitZ, {width: '100%', callback: (v) => { 
                             if(!v){ 
-                                this.editor.chains[i].links[j].rotationMin.z = -2*Math.PI
-                                this.editor.chains[i].links[j].rotationMax.z = 2*Math.PI
+                                chains[i].links[j].rotationMin.z = -2*Math.PI
+                                chains[i].links[j].rotationMax.z = 2*Math.PI
                             }}
                         });
                         widgets.widgets_per_row = 1;
-                        if(this.editor.chains[i].links[j].rotationMin) {
-                            let rotMin =  [this.editor.chains[i].links[j].rotationMin.x, this.editor.chains[i].links[j].rotationMin.y, this.editor.chains[i].links[j].rotationMin.z];
+                        if(chains[i].links[j].rotationMin) {
+                            let rotMin =  [chains[i].links[j].rotationMin.x, chains[i].links[j].rotationMin.y, chains[i].links[j].rotationMin.z];
                             widgets.addVector3("Rotation min", rotMin, {min: -2*Math.PI, max: 2*Math.PI, callback:
                                 value => {
-                                    let v = this.editor.chains[i].links[j];
+                                    let v = chains[i].links[j];
                                     if(v.limitX) {
-                                        this.editor.chains[i].links[j].rotationMin.x = value[0];
-                                        this.editor.CCDIKSolver.iks[i].links[j].rotationMin.x = value[0];
+                                        chains[i].links[j].rotationMin.x = value[0];
+                                        // this.editor.CCDIKSolver.iks[i].links[j].rotationMin.x = value[0];
                                     }
                                     if(v.limitY) {
-                                        this.editor.chains[i].links[j].rotationMin.y = value[1];
-                                        this.editor.CCDIKSolver.iks[i].links[j].rotationMin.y = value[1];
+                                        chains[i].links[j].rotationMin.y = value[1];
+                                        // this.editor.CCDIKSolver.iks[i].links[j].rotationMin.y = value[1];
                                     }
                                     if(v.limitZ) {
-                                        this.editor.chains[i].links[j].rotationMin.z = value[2];
-                                        this.editor.CCDIKSolver.iks[i].links[j].rotationMin.z = value[2];
+                                        chains[i].links[j].rotationMin.z = value[2];
+                                        // this.editor.CCDIKSolver.iks[i].links[j].rotationMin.z = value[2];
                                     }
                                 }
                             }); 
@@ -136,28 +137,28 @@ class GUI {
                         else{
                             widgets.addButton(null, "Add minimum rotation", {callback: v => {
 
-                                this.editor.chains[i].links[j].rotationMin = new THREE.Vector3(-2*Math.PI,   -2*Math.PI,   -2*Math.PI );
-                                this.editor.CCDIKSolver.iks[i].links[j].rotationMin = new THREE.Vector3(-2*Math.PI,   -2*Math.PI,   -2*Math.PI );
+                                chains[i].links[j].rotationMin = new THREE.Vector3(-2*Math.PI,   -2*Math.PI,   -2*Math.PI );
+                                // this.editor.CCDIKSolver.iks[i].links[j].rotationMin = new THREE.Vector3(-2*Math.PI,   -2*Math.PI,   -2*Math.PI );
                                 widgets.refresh();
                             }})
                         }
-                        if(this.editor.chains[i].links[j].rotationMax)
+                        if(chains[i].links[j].rotationMax)
                         {                   
-                            let rotMax =  [this.editor.chains[i].links[j].rotationMax.x, this.editor.chains[i].links[j].rotationMax.y, this.editor.chains[i].links[j].rotationMax.z];
-                            widgets.addVector3("Rotation max", this.editor.chains[i].links[j].rotationMax, {min: -2*Math.PI, max: 2*Math.PI, callback:
+                            let rotMax =  [chains[i].links[j].rotationMax.x, chains[i].links[j].rotationMax.y, chains[i].links[j].rotationMax.z];
+                            widgets.addVector3("Rotation max", chains[i].links[j].rotationMax, {min: -2*Math.PI, max: 2*Math.PI, callback:
                                 value => {
-                                    let v = this.editor.chains[i].links[j];
+                                    let v = chains[i].links[j];
                                     if(v.limitX){
-                                        this.editor.chains[i].links[j].rotationMax.x = value[0];
-                                        this.editor.CCDIKSolver.iks[i].links[j].rotationMax.x = value[0];
+                                        chains[i].links[j].rotationMax.x = value[0];
+                                        // this.editor.CCDIKSolver.iks[i].links[j].rotationMax.x = value[0];
                                     }
                                     if(v.limitY) {
-                                        this.editor.chains[i].links[j].rotationMax.y = value[1];
-                                        this.editor.CCDIKSolver.iks[i].links[j].rotationMax.y = value[1];
+                                        chains[i].links[j].rotationMax.y = value[1];
+                                        // this.editor.CCDIKSolver.iks[i].links[j].rotationMax.y = value[1];
                                     }
                                     if(v.limitZ) {
-                                        this.editor.chains[i].links[j].rotationMax.z = value[2];                
-                                        this.editor.CCDIKSolver.iks[i].links[j].rotationMax.z = value[2];                
+                                        chains[i].links[j].rotationMax.z = value[2];                
+                                        // this.editor.CCDIKSolver.iks[i].links[j].rotationMax.z = value[2];                
                                     }
                                 }
                             }); 
@@ -166,35 +167,35 @@ class GUI {
                         else {
                             widgets.addButton(null, "Add maximum rotation", {callback: v => {
 
-                                this.editor.chains[i].links[j].rotationMax = new THREE.Vector3(2*Math.PI,   2*Math.PI,   2*Math.PI );
-                                this.editor.CCDIKSolver.iks[i].links[j].rotationMax = new THREE.Vector3(2*Math.PI,   2*Math.PI,   2*Math.PI );
+                                chains[i].links[j].rotationMax = new THREE.Vector3(2*Math.PI,   2*Math.PI,   2*Math.PI );
+                                // this.editor.CCDIKSolver.iks[i].links[j].rotationMax = new THREE.Vector3(2*Math.PI,   2*Math.PI,   2*Math.PI );
                                 widgets.refresh();
                             }})
                         }
 
-                        if(this.editor.chains[i].links[j].limitation){
-                            let axis = this.editor.chains[i].links[j].limitation;
+                        if(chains[i].links[j].limitation){
+                            let axis = chains[i].links[j].limitation;
                             widgets.addVector3("Rotation axis", [axis.x, axis.y, axis.z], {callback: v => {
-                                this.editor.chains[i].links[j].limitation.x = v[0];
-                                this.editor.chains[i].links[j].limitation.y = v[1];
-                                this.editor.chains[i].links[j].limitation.z = v[2];   
+                                chains[i].links[j].limitation.x = v[0];
+                                chains[i].links[j].limitation.y = v[1];
+                                chains[i].links[j].limitation.z = v[2];   
                                 
-                                this.editor.CCDIKSolver.iks[i].links[j].limitation.x = v[0];
-                                this.editor.CCDIKSolver.iks[i].links[j].limitation.y = v[1];
-                                this.editor.CCDIKSolver.iks[i].links[j].limitation.z = v[2];   
+                                // this.editor.CCDIKSolver.iks[i].links[j].limitation.x = v[0];
+                                // this.editor.CCDIKSolver.iks[i].links[j].limitation.y = v[1];
+                                // this.editor.CCDIKSolver.iks[i].links[j].limitation.z = v[2];   
                             }})
                         }
                         else {
                             widgets.addButton(null, "Add rotation axis", {callback: v => {
 
-                                this.editor.chains[i].links[j].limitation = new THREE.Vector3(1,0,0);
-                                this.editor.CCDIKSolver.iks[i].links[j].limitation = new THREE.Vector3(1,0,0);
+                                chains[i].links[j].limitation = new THREE.Vector3(1,0,0);
+                                this.editor.currentModel.CCDIKSolver.iks[i].links[j].limitation = new THREE.Vector3(1,0,0);
                                 widgets.refresh();
                             }})
                         }
                     }
                     let rBtn = widgets.addButton(null, "Delete chain", { callback: v => {
-                        this.editor.removeChain(this.editor.chains[i].name);
+                        this.editor.removeChain(this.editor.currentModel,chains[i].name);
                         widgets.refresh();
                     }})
                     rBtn.getElementsByTagName("button")[0].style["background-color"] =  "indianred";
@@ -204,14 +205,15 @@ class GUI {
             /*----------------------------------------------- FABRIK Inspector -----------------------------------------------*/
             else if(this.editor.solver == "FABRIK") {
 
-                for(let i = 0; i < this.editor.fabrikChains.length; i++){
-                    widgets.addTitle(this.editor.fabrikChains[i].name, {});
+                let fabrikChains = this.editor.currentModel.FABRIKSolver.chains;
+                for(let i = 0; i < fabrikChains.length; i++){
+                    widgets.addTitle(fabrikChains[i].name, {});
                     
-                    let bones = this.editor.skeleton.bones;
-                    for(let j = this.editor.fabrikChains[i].bones.length - 1; j >= 0; j--){
-                        widgets.addInfo("Bone", bones[this.editor.fabrikChains[i].bones[j]].name);
+                    let bones = this.editor.currentModel.skeleton.bones;
+                    for(let j = fabrikChains[i].chain.length - 1; j >= 0; j--){
+                        widgets.addInfo("Bone", bones[fabrikChains[i].chain[j]].name);
                         widgets.widgets_per_row = 1;
-                        let constraint = this.editor.fabrikChains[i].constraints[j];
+                        let constraint = fabrikChains[i].constraints[j];
                         if(constraint) {
                             let types = Object.keys(FABRIKSolver.JOINTTYPES);
                             widgets.addString("Constraint type", types[constraint.type - 1], {disabled: true});
@@ -221,19 +223,19 @@ class GUI {
                                 widgets.addDefault(c, constraint[c])
                             }
                             widgets.addButton(null, "Remove constraint", { callback: v => {
-                                this.editor.fabrikChains[i].constraints[j] = null;
-                                this.editor.FABRIKSolver.chains[i].constraints[j] = null;
+                                fabrikChains[i].constraints[j] = null;
+                                this.editor.currentModel.FABRIKSolver.chains[i].constraints[j] = null;
                                 widgets.refresh();
                             }})
                         }else{
                             widgets.addButton(null, "Add constraint", { callback: v => {
-                                this.createFabrikConstraintDialog(i, j, bones[this.editor.fabrikChains[i].bones[j]].name, widgets.refresh.bind(widgets));
+                                this.createFabrikConstraintDialog(i, j, bones[fabrikChains[i].chain[j]].name, widgets.refresh.bind(widgets));
                             }})
                         }
                         widgets.addSeparator();    
                     }
                     let rBtn = widgets.addButton(null, "Delete chain", { callback: v => {
-                        this.editor.removeChain(this.editor.chains[i].name);
+                        this.editor.removeChain(this.editor.currentModel, fabrikChains[i].name);
                         widgets.refresh();
                     }})
                     rBtn.getElementsByTagName("button")[0].style["background-color"] =  "indianred";
@@ -250,7 +252,7 @@ class GUI {
             
             widgets.widgets_per_row = 2;
             
-            let origin = newChain.origin == null? null: this.editor.skeleton.bones[newChain.origin].name
+            let origin = newChain.origin == null? null: this.editor.currentModel.skeleton.bones[newChain.origin].name
             widgets.addString("Origin bone", origin, { width: '80%', disabled: true})
             widgets.addButton(null, "+", {title: "From selected", width: '10%', micro: true, callback: v => {
                 newChain.origin = this.editor.gizmo.selectedBone;
@@ -266,7 +268,7 @@ class GUI {
             //     widgets.refresh();
             // }})
             
-            let endEffector = newChain.endEffector == null? null: this.editor.skeleton.bones[newChain.endEffector].name
+            let endEffector = newChain.endEffector == null? null: this.editor.currentModel.skeleton.bones[newChain.endEffector].name
             widgets.widgets_per_row = 2;
             widgets.addString("End-effector bone", endEffector, {  width: '80%', disabled: true});
             widgets.addButton(null, "+", {title: "From selected", width: '10%', micro: true, callback: v => {
@@ -296,7 +298,7 @@ class GUI {
                     alert("End effector bone required");
                     return;
                 }
-                this.editor.addChain(newChain,widgets.refresh.bind(widgets) );
+                this.editor.addChain(this.editor.currentModel, newChain,widgets.refresh.bind(widgets) );
              
             }})
             btn.getElementsByTagName("button")[0].style["background-color"] =  "cadetblue";
@@ -354,15 +356,15 @@ class GUI {
                 //add constraint to the chain               
                 if(constraint.type == FABRIKSolver.JOINTTYPES.HINGE) {
                     constraint.hinge.type = constraint.type;
-                    this.editor.fabrikChains[chainIdx].constraints[chainBoneIdx] = constraint.hinge;
-                    this.editor.FABRIKSolver.chains[chainIdx].constraints[chainBoneIdx] = constraint.hinge;
+                    this.editor.currentModel.FABRIKSolver.chains[chainIdx].constraints[chainBoneIdx] = constraint.hinge;
+                    // this.editor.FABRIKSolver.chains[chainIdx].constraints[chainBoneIdx] = constraint.hinge;
 
                     //--TO DO-- call FABRIKSolver.fixConstrants  ---> create addConstraint on solver?
                 }
                 else {
                     constraint.hinge.type = constraint.type;
-                    this.editor.fabrikChains[chainIdx].constraints[chainBoneIdx] = constraint.ballsocket;
-                    this.editor.FABRIKSolver.chains[chainIdx].constraints[chainBoneIdx] = constraint.ballsocket;
+                    this.editor.currentModel.FABRIKSolver.chains[chainIdx].constraints[chainBoneIdx] = constraint.ballsocket;
+                    // this.editor.FABRIKSolver.chains[chainIdx].constraints[chainBoneIdx] = constraint.ballsocket;
                     //--TO DO-- call FABRIKSolver.fixConstrants  ---> create addConstraint on solver?
                 }
                 dialog.close();
