@@ -3,9 +3,9 @@ import { OrbitControls } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/
 import { TransformControls } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/controls/TransformControls.js';
 import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/loaders/GLTFLoader.js';
 import { CCDIKSolver} from 'https://cdn.skypack.dev/three@0.136/examples/jsm/animation/CCDIKSolver.js';
-import {GUI} from 'https://cdn.skypack.dev/dat.gui'
 import { FABRIKSolver } from './FABRIKSolver.js'
-
+import { GUI } from './gui.js'
+import {Gizmo} from './gizmo.js'
 class App {
 
     constructor() {
@@ -25,15 +25,53 @@ class App {
         this.skeletonHelper = null;
 
         this.msg = {};
-        this.gui = new GUI();
-        this.chainsCCDIK = []; // CCDIK
-        this.chainsFABRIK = []; // FABRIK
+
+        this.chains = [];
+        this.fabrikChains = [];
         this.solvers = ["CCDIK", "FABRIK", "MIX"];
-        this.solver = this.solvers[1];
+        this.solver = this.solvers[0];
+        this.models = ["Eva", "LowPoly"];
+        this.currentModel = this.models[1];
+        this.gui = new GUI(this);        
+    
     }
 
     init() {
         let that = this;
+        
+        this.initScene();
+        
+        // renderer
+        this.renderer = new THREE.WebGLRenderer( { antialias: true } );
+        this.renderer.setPixelRatio( window.devicePixelRatio );
+        this.renderer.setSize( window.innerWidth, window.innerHeight );
+        //this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        //this.renderer.toneMappingExposure = 0.7;
+        this.renderer.outputEncoding = THREE.sRGBEncoding;
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.domElement.id = "webgl-canvas";
+        let canvasArea = document.getElementById("canvasarea");
+        canvasArea.appendChild( this.renderer.domElement );
+
+        // camera
+        this.camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.01, 1000);
+        this.controls = new OrbitControls( this.camera, this.renderer.domElement );
+        this.controls.object.position.set(0.0, 1.5, 1);
+        this.controls.minDistance = 0.1;
+        this.controls.maxDistance = 7;
+        this.controls.target.set(0.0, 1.3, 0);
+        this.controls.update();
+
+        // so the screen is not black while loading
+        this.renderer.render( this.scene, this.camera );
+        this.gizmo = new Gizmo(this);
+        this.initCharacter();
+        
+        window.addEventListener( 'resize', this.onWindowResize.bind(this) );
+        
+    }
+    
+    initScene() {
         
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color( 0xa0a0a0 );
@@ -55,79 +93,80 @@ class App {
         dirLight.position.set( 3,5,3 );
         this.scene.add( dirLight );
 
-        
-        // renderer
-        this.renderer = new THREE.WebGLRenderer( { antialias: true } );
-        this.renderer.setPixelRatio( window.devicePixelRatio );
-        this.renderer.setSize( window.innerWidth, window.innerHeight );
-        //this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        //this.renderer.toneMappingExposure = 0.7;
-        this.renderer.outputEncoding = THREE.sRGBEncoding;
-        this.renderer.shadowMap.enabled = true;
-        document.body.appendChild( this.renderer.domElement );
+    }
 
-        // camera
-        this.camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.01, 1000);
-        this.controls = new OrbitControls( this.camera, this.renderer.domElement );
-        this.controls.object.position.set(0.0, 1.5, 1);
-        this.controls.minDistance = 0.1;
-        this.controls.maxDistance = 7;
-        this.controls.target.set(0.0, 1.3, 0);
-        this.controls.update();
-
-        // so the screen is not black while loading
-        this.renderer.render( this.scene, this.camera );
-        
+    initCharacter() {
         function loadModel ( callback, glb  ){
-            let model = this.model = glb.scene;
-
-            model = glb.scene;
-            //model.rotateOnAxis (new THREE.Vector3(1,0,0), -Math.PI/2);
-            model.castShadow = true;
+            this.model = glb.scene;
             
-            /*// EVA
-            model.traverse( (object) => {
-                if ( object.isMesh || object.isSkinnedMesh ) {
-                    object.material.side = THREE.FrontSide;
-                    object.frustumCulled = false;
-                    object.castShadow = true;
-                    object.receiveShadow = true;
-                    if (object.name == "Eyelashes")
-                        object.castShadow = false;
-                        if(object.material.map) 
-                        object.material.map.anisotropy = 16;
-                    } else if (object.isBone) {
-                        object.scale.set(1.0, 1.0, 1.0);
-                    }
-                    
-                } );
-                */
-            // woman.gltf
+            //model.rotateOnAxis (new THREE.Vector3(1,0,0), -Math.PI/2);
+            this.model.castShadow = true;
+
             const textureLoader = new THREE.TextureLoader();
-            model.traverse( (object) => {
+            this.model.traverse( (object) => {
                 if ( object.isMesh || object.isSkinnedMesh ) {
                     object.material.side = THREE.FrontSide;
                     object.frustumCulled = false;
                     object.castShadow = true;
                     object.receiveShadow = true;
-                    textureLoader.load( "./data/models/lowPoly/woman.png", (texture) => { 
-                        object.material = new THREE.MeshStandardMaterial( {side: THREE.FrontSide, map: texture, roughness: 0.7, metalness: 0.1} );
-                        object.material.map.flipY = false;
-                    } );
-                    object.pose()
+                    // woman.gltf
+                    if(this.currentModel == "LowPoly") {
+                        textureLoader.load( "./data/models/lowPoly/woman.png", (texture) => { 
+                            object.material = new THREE.MeshStandardMaterial( {side: THREE.FrontSide, map: texture, roughness: 0.7, metalness: 0.1} );
+                            object.material.map.flipY = false;
+                        } );
+                    }
+                    this.skeleton = object.skeleton;
+                    // object.pose()
                 }
-                   
+                    
             } );
                 
+            if(this.currentModel == "Eva") {
+                //EVA
+                this.model.scale.set(0.01,0.01,0.01);
+            } else{
+                //woman.gltf
+                // this.model.position.set(0.05, 0.8, 0 );
+                // this.model.rotateY(-Math.PI/2)
+                this.model.scale.set(0.25,0.25,0.25);
+            }
 
-            let skeletonHelper = this.skeletonHelper = new THREE.SkeletonHelper( model );
+            //this.skeleton = this.model.getObjectByName("Woman").skeleton;
+            this.model.skeleton = this.skeleton;
+            this.bonesIdxs = {};
+            for(let i = 0; i < this.skeleton.bones.length; i++) {
+                let name = this.skeleton.bones[i].name.replace("mixamorig_", "");
+                if(name == "LeftUpLeg") {
+                    this.bonesIdxs["LeftUpLeg"] = i;
+                }
+                else if(name == "LeftLeg") {
+                    this.bonesIdxs["LeftLeg"] = i;
+                }
+                else if(name == "LeftFoot") {
+                    this.bonesIdxs["LeftFoot"] = i;
+                }
+                else if(name == "LeftArm") {
+                    this.bonesIdxs["LeftArm"] = i;
+                }
+                else if(name == "LeftForeArm") {
+                    this.bonesIdxs["LeftForeArm"] = i;
+                }
+                else if(name == "LeftHand") {
+                    this.bonesIdxs["LeftHand"] = i;
+                }
+            }
+            this.model.name = "Character";
+            this.scene.add(this.model);
+            
+            let skeletonHelper = this.skeletonHelper = new THREE.SkeletonHelper( this.model );
             skeletonHelper.visible = true;
             skeletonHelper.frustumCulled = false;
+            skeletonHelper.name = "SkeletonHelper";
             this.scene.add(skeletonHelper);
-            this.scene.add(model);
-
+            
             // load the actual animation to play
-            this.mixer = new THREE.AnimationMixer( model );
+            //this.mixer = new THREE.AnimationMixer( model );
 
             if ( callback ){ callback (); }
 
@@ -135,118 +174,175 @@ class App {
 
 
         function loadfinished() {
-            //EVA
-            this.model.position.set(0.05, 0.8, 0 );
-            this.model.rotateY(-Math.PI/2)
-            //woman.gltf
-            this.model.scale.set(0.25,0.25,0.25);
+    
+            // if(!this.IKTargetArm) {
+            //     this.IKTargetArm = new THREE.Bone();
+            //     this.scene.add( this.IKTargetArm );
+            // }
+            // this.skeleton.bones.push(this.IKTargetArm)
+            // this.skeleton.boneInverses.push(new THREE.Matrix4());
+            // this.skeleton.boneMatrices =  [...this.skeleton.boneMatrices, ...new THREE.Matrix4().toArray()];
 
-            this.skeleton = this.model.getObjectByName("Woman").skeleton;
-            
-            this.IKTargetArm = new THREE.Bone();
-            this.scene.add( this.IKTargetArm );
-            this.skeleton.bones.push(this.IKTargetArm)
-            this.skeleton.boneInverses.push(new THREE.Matrix4());
-            this.skeleton.boneMatrices =  [...this.skeleton.boneMatrices, ...new THREE.Matrix4().toArray()];
-            this.IKTargetLeg = new THREE.Bone();
-            this.scene.add( this.IKTargetLeg );
-            this.skeleton.bones.push(this.IKTargetLeg)
-            this.skeleton.boneInverses.push(new THREE.Matrix4());
-            this.skeleton.boneMatrices =  [...this.skeleton.boneMatrices, ...new THREE.Matrix4().toArray()];
+            // if(!this.IKTargetLeg) {
+            //     this.IKTargetLeg = new THREE.Bone();
+            //     this.scene.add( this.IKTargetLeg );
+            // }
+            // this.skeleton.bones.push(this.IKTargetLeg)
+            // this.skeleton.boneInverses.push(new THREE.Matrix4());
+            // this.skeleton.boneMatrices =  [...this.skeleton.boneMatrices, ...new THREE.Matrix4().toArray()];
 
-            this.transfControl = new TransformControls( this.camera, this.renderer.domElement );
-            this.transfControl.addEventListener( 'dragging-changed', function ( event ) { that.controls.enabled = ! event.value; } );
-            this.transfControl.attach( this.IKTargetArm );
-            this.transfControl.size = 0.6;
-            this.scene.add( this.transfControl );
-            this.transfControl2 = new TransformControls( this.camera, this.renderer.domElement );
-            this.transfControl2.addEventListener( 'dragging-changed', function ( event ) { that.controls.enabled = ! event.value; } );
-            this.transfControl2.attach( this.IKTargetLeg );
-            this.transfControl2.size = 0.6;
-            this.scene.add( this.transfControl2 );
+            // if(!this.transfControl && !this.transfControl2) {
+
+            //     this.transfControl = new TransformControls( this.camera, this.renderer.domElement );
+            //     this.transfControl.addEventListener( 'dragging-changed',  ( event ) => { this.controls.enabled = ! event.value; } );
+            //     this.transfControl.attach( this.IKTargetArm );
+            //     this.transfControl.size = 0.6;
+            //     this.scene.add( this.transfControl );
+            //     this.transfControl2 = new TransformControls( this.camera, this.renderer.domElement );
+            //     this.transfControl2.addEventListener( 'dragging-changed', ( event ) => { this.controls.enabled = ! event.value; } );
+            //     this.transfControl2.attach( this.IKTargetLeg );
+            //     this.transfControl2.size = 0.6;
+            //     this.scene.add( this.transfControl2 );
+            // }
 
 
-            this.IKTargetArm.position.set(1, 1, 0)
-            this.IKTargetLeg.position.set(0.5, 0, 0)
+            // this.IKTargetArm.position.set(1, 1, 0)
+            // this.IKTargetLeg.position.set(0.5, 0, 0)
             
             window.addEventListener("keydown", this.onKeyDown.bind(this));
             
+            // this.initCCDIK();
+            this.addChain({name:"Arm", origin: this.bonesIdxs["LeftArm"], endEffector: this.bonesIdxs["LeftHand"]})
+            this.initGUI();
+            // this.initFabrik(true);
             this.animate();
-            this.initCCDIK();
-            this.initFabrik();
-            this.initGUI()
+            this.gizmo.begin(this.skeletonHelper)
             $('#loading').fadeOut(); //hide();
         }
-        
-        //this.loaderGLB.load( './data/models/Eva_Y.glb', loadModel.bind( this, loadfinished.bind(this) ) );
-        this.loaderGLB.load( './data/models/lowPoly/woman.gltf', loadModel.bind( this, loadfinished.bind(this) ) );
-        
-        window.addEventListener( 'resize', this.onWindowResize.bind(this) );
-        
+
+        this.scene.remove(this.scene.getObjectByName("Character"));
+        this.scene.remove(this.scene.getObjectByName("SkeletonHelper"));
+        let path = './data/models/';
+        path += (this.currentModel == 'LowPoly') ? 'lowPoly/woman.gltf' : 'Eva_Y2.glb';
+        this.loaderGLB.load( path, loadModel.bind( this, loadfinished.bind(this) ) );
     }
-    
     /**
     * @description
     * Initialization of CCD solver. Add Left Arm and Left Leg chains [Bone origin, ..., Bone end-effector] to the solver with their corresponding constraints and targetgs.
     */
     initCCDIK(){
-        this.chainsCCDIK = [
-            {
-                name: 'leftArm',
-                target: this.skeleton.bones.length-2, // "target_hand_l"
-                effector: 10, // "hand_l"
-                links: [
-                    {
-                        index: 9, // "lowerarm_l"
-                        limitX: true,
-                        limitY: true,
-                        limitZ: true,
-                        rotationMin: new THREE.Vector3(0 ,0, 0 ), //68, 103.13, -22.92
-                        rotationMax: new THREE.Vector3(0 ,1.1,1.1 ) // 97, -63, 17
-                    },
-                    {
-                        index: 8, // "Upperarm_l"
-                        limitX: true,
-                        limitY: true,
-                        limitZ: true,
-                        rotationMin: new THREE.Vector3(-1.8, -0.7, -2  ), //6, -40, 103.13
-                        rotationMax: new THREE.Vector3( 1.4,  0.0, 1.8 ) // 63, 0, -80 
-                    },
-                ],
-            },
-            {
-                name: 'leftLeg',
-                target: this.skeleton.bones.length-1, // "target_leg_l"
-                effector: 33, // "foot_l"
-                links: [
-                    {
-                        index: 32, // "leg_l"
-                        limitX: true,
-                        limitY: true,
-                        limitZ: true,
-                        rotationMin: new THREE.Vector3(-Math.PI ,-0.4, 0 ), //68, 103.13, -22.92
-                        rotationMax: new THREE.Vector3(0 ,0.4,0 ) // 97, -63, 17
-                    },
-                    {
-                        index: 31, // "Upperleg_l"
-                        limitX: true,
-                        limitY: true,
-                        limitZ: true,
-                        rotationMin: new THREE.Vector3(-1.8, -0.4, -Math.PI  ), //6, -40, 103.13
-                        rotationMax: new THREE.Vector3( 1.4,  0.4, Math.PI ) // 63, 0, -80 
-                    },
-                ],
-            }
-        ];
+        if(this.currentModel == "LowPoly") {
+
+            this.chains = [
+                {
+                    name: 'leftArm',
+                    target: this.skeleton.bones.length - 2, // "target_hand_l"
+                    effector: this.bonesIdxs["LeftHand"], // "hand_l"
+                    links: [
+                        {
+                            index: this.bonesIdxs["LeftForeArm"], // "lowerarm_l"
+                            limitX: true,
+                            limitY: true,
+                            limitZ: true,
+                            rotationMin: new THREE.Vector3(0,   0,   0 ), //68, 103.13, -22.92
+                            rotationMax: new THREE.Vector3(0, 1.1, 1.1 ) // 97, -63, 17
+                        },
+                        {
+                            index: this.bonesIdxs["LeftArm"], // "Upperarm_l"
+                            limitX: true,
+                            limitY: true,
+                            limitZ: true,
+                            rotationMin: new THREE.Vector3(-1.8, -0.7,  -2 ), //6, -40, 103.13
+                            rotationMax: new THREE.Vector3( 1.4,  0.0, 1.8 ) // 63, 0, -80 
+                        },
+                    ],
+                },
+                {
+                    name: 'leftLeg',
+                    target: this.skeleton.bones.length - 1, // "target_leg_l"
+                    effector: this.bonesIdxs["LeftFoot"], // "foot_l"
+                    links: [
+                        {
+                            index: this.bonesIdxs["LeftLeg"], // "leg_l"
+                            limitX: true,
+                            limitY: true,
+                            limitZ: true,
+                            rotationMin: new THREE.Vector3(-Math.PI, -0.4, 0 ), //68, 103.13, -22.92
+                            rotationMax: new THREE.Vector3(       0,  0.4, 0 ) // 97, -63, 17
+                        },
+                        {
+                            index: this.bonesIdxs["LeftUpLeg"], // "Upperleg_l"
+                            limitX: true,
+                            limitY: true,
+                            limitZ: true,
+                            rotationMin: new THREE.Vector3(-1.8, -0.4, -Math.PI  ), //6, -40, 103.13
+                            rotationMax: new THREE.Vector3( 1.4,  0.4,  Math.PI ) // 63, 0, -80 
+                        },
+                    ],
+                }
+            ];
+            
+        }
+        else {
+            this.chains = [
+                {
+                    name: 'leftArm',
+                    target: this.skeleton.bones.length - 2, // "target_hand_l"
+                    effector: this.bonesIdxs["LeftHand"], // "hand_l"
+                    links: [
+                        {
+                            index: this.bonesIdxs["LeftForeArm"], // "lowerarm_l"
+                            limitX: true,
+                            limitY: true,
+                            limitZ: true,
+                            rotationMin: new THREE.Vector3(0,   0,   0 ), //68, 103.13, -22.92
+                            rotationMax: new THREE.Vector3(0, 1.1, 1.1 ) // 97, -63, 17
+                        },
+                        {
+                            index: this.bonesIdxs["LeftArm"], // "Upperarm_l"
+                            limitX: true,
+                            limitY: true,
+                            limitZ: true,
+                            rotationMin: new THREE.Vector3(-1.8, -0.7,  -2 ), //6, -40, 103.13
+                            rotationMax: new THREE.Vector3( 1.4,  0.0, 1.8 ) // 63, 0, -80 
+                        },
+                    ],
+                },
+                {
+                    name: 'leftLeg',
+                    target: this.skeleton.bones.length - 1, // "target_leg_l"
+                    effector: this.bonesIdxs["LeftFoot"], // "foot_l"
+                    links: [
+                        {
+                            index: this.bonesIdxs["LeftLeg"], // "leg_l"
+                            limitX: false,
+                            limitY: false,
+                            limitZ: false,
+                            rotationMin: new THREE.Vector3(-Math.PI, -0.4, 0 ), //68, 103.13, -22.92
+                            rotationMax: new THREE.Vector3(       0,  0.4, 0 ) // 97, -63, 17
+                        },
+                        {
+                            index: this.bonesIdxs["LeftUpLeg"], // "Upperleg_l"
+                            limitX: false,
+                            limitY: false,
+                            limitZ: false,
+                            rotationMin: new THREE.Vector3(-1.8, -0.4, -Math.PI  ), //6, -40, 103.13
+                            rotationMax: new THREE.Vector3( 1.4,  0.4,  Math.PI ) // 63, 0, -80 
+                        },
+                    ],
+                }
+            ];
+        }
         
-      
-        this.CCDIKSolver = new CCDIKSolver( this.model.getObjectByName("Woman"), this.chainsCCDIK );
-
+        this.CCDIKSolver = new CCDIKSolver( this.model, this.chains );
+        
     }
-
+    
     /**
-    * @description
-    * Initialization of FABRIK solver. Add Left Arm and Left Leg chains [Bone origin, ..., Bone end-effector] to the solver with their corresponding constraints and targetgs.
+     * @description
+     * Initialization of FABRIK solver. Add Left Arm and Left Leg chains [Bone origin, ..., Bone end-effector] to the solver with their corresponding constraints and targetgs.
+     * @params
+    * constraints: Boolean that indicates if the chains have to be constrained
     */
     initFabrik() {
         this.chainsFABRIK = [
@@ -264,154 +360,195 @@ class App {
             }
         ]
         this.FABRIKSolver = new FABRIKSolver( this.skeleton );
+        this.fabrikChains = [ 
+            {
+                name: "leftLeg",
+                bones: [this.bonesIdxs["LeftFoot"], this.bonesIdxs["LeftLeg"], this.bonesIdxs["LeftUpLeg"]], 
+                constraints:   [ 
+                        null,    
+                        {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, 0.0001 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   
+                        {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.PI*0.25 ], polar:[0, Math.PI*0.45]}
+                    ],
+                target: this.IKTargetLeg // OBject3D (or equivalents) for now. It must be in the scene
+            },
+            {
+                name: "leftArm",
+                bones: [ this.bonesIdxs["LeftHand"], this.bonesIdxs["LeftForeArm"], this.bonesIdxs["LeftArm"]], 
+                constraints: [ 
+                        null,    
+                        {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, Math.PI*0.5 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   
+                        {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.PI*0.25 ], polar:[0, Math.PI*0.5]}
+                    ], 
+                target: this.IKTargetArm // OBject3D (or equivalents) for now. It must be in the scene     
+            }
+        ];
 
-        this.FABRIKSolver.createChain( this.chainsFABRIK[0].chain, this.chainsFABRIK[0].constraints, this.chainsFABRIK[0].target ); 
-        this.FABRIKSolver.createChain( this.chainsFABRIK[1].chain, this.chainsFABRIK[1].constraints, this.chainsFABRIK[1].target ); 
+        if(constraints) {
+
+            this.FABRIKSolver.createChain( this.fabrikChains[0].bones, this.fabrikChains[0].constraints, this.fabrikChains[0].target  ); 
+
+            this.FABRIKSolver.createChain( this.fabrikChains[1].bones, this.fabrikChains[1].constraints, this.fabrikChains[1].target );  
+
+
+        }
+        else {
+            this.FABRIKSolver.createChain( 
+                [this.bonesIdxs["LeftFoot"], this.bonesIdxs["LeftLeg"], this.bonesIdxs["LeftUpLeg"]], 
+                [ null,    null,   null], 
+                this.IKTargetLeg // OBject3D (or equivalents) for now. It must be in the scene
+            );  
+            this.FABRIKSolver.createChain( 
+                [ this.bonesIdxs["LeftHand"], this.bonesIdxs["LeftForeArm"], this.bonesIdxs["LeftArm"]], 
+                [ null,    null,   null], 
+                this.IKTargetArm // OBject3D (or equivalents) for now. It must be in the scene
+            );  
+        }
     }
 
     initGUI() {
-        let solver = this.gui.addFolder("Solver");
-        let ccdikFolder = this.gui.addFolder( "CCDIK constraints");
-        let fabrikFolder = this.gui.addFolder( "FABRIK constraints");
+        this.gui.updateSidePanel();
+    }
 
-        solver.add({solver: this.solver}, 'solver', this.solvers).name("Solver").onChange(v => {
-            
-            if(v == "MIX") {
-                this.FABRIKSolver.constraintsEnabler = false;
-                ccdikFolder.domElement.style.display = "block";
-                fabrikFolder.domElement.style.display = "block";
-            }
-            else if(v == "FABRIK") {
-                this.FABRIKSolver.constraintsEnabler = true;
-                ccdikFolder.domElement.style.display = "none";
-                fabrikFolder.domElement.style.display = "block";
-            }
-            else{
-                ccdikFolder.domElement.style.display = "block";
-                fabrikFolder.domElement.style.display = "none";
-            }
-            this.solver = v;
-            
-        })
-        
-        let constraintsEnabler = { v: true };
-        //let test= solver.add( constraintsEnabler, "v" ).onChange( v => { this.FABRIKSolver.constraintsEnabler = v; });    
-        
-        // FABRIK GUI
-        for( let i =0; i < this.chainsFABRIK.length; ++i ){
-            let folder = fabrikFolder.addFolder( this.chainsFABRIK[i].name );
-            let bones = this.skeleton.bones;
-            for ( let j = 1; j < this.chainsFABRIK[i].chain.length; ++j ){
-                let subfolder = folder.addFolder("Bone " + bones[this.chainsFABRIK[i].chain[j]].name );
-                
-                let constraints = this.chainsFABRIK[i].constraints[j];
-                subfolder.add( this.chainsFABRIK[i])
-            }
+    addChain(chain, callback = null) {
 
+        if(!chain.origin)  {
+            console.error("No bone origin")
+            return;
+        }
+        if(!chain.endEffector)  {
+            console.error("No bone end-effector")
+            return;
         }
 
+        //Add target to the scene
+        let target = null;
+        if(this['IKTarget'+chain.name] ){
+            target = this['IKTarget'+chain.name] ;
+        }else{
 
-        // CCDIK GUI
-        for(let i = 0; i < this.chainsCCDIK.length; i++){
-            let folder = ccdikFolder.addFolder(this.chainsCCDIK[i].name);
-            let bones = this.skeleton.bones;
-            for(let j = 0; j < this.chainsCCDIK[i].links.length; j++){
-                let subfolder = folder.addFolder("Bone "+ bones[this.chainsCCDIK[i].links[j].index].name);
-                
-                subfolder.add(this.chainsCCDIK[i].links[j], "limitX").listen().onChange(v => { 
-                    if(!v){ 
-                        this.chainsCCDIK[i].links[j].rotationMin.x = -2*Math.PI
-                        this.chainsCCDIK[i].links[j].rotationMax.x = 2*Math.PI
-                    }
-                });
-                subfolder.add(this.chainsCCDIK[i].links[j].rotationMin, "x", -2*Math.PI, 2*Math.PI)
-                .name("Min")           
-                .onChange(                      
-                    value => {
-                        this.chainsCCDIK[i].links[j].rotationMin.x = value;                
-                    }
-                ); 
-                subfolder.add(this.chainsCCDIK[i].links[j].rotationMax, "x", -2*Math.PI, 2*Math.PI) 
-                .name("Max")            
-                .onChange(                      
-                    value => {
-                        this.chainsCCDIK[i].links[j].rotationMax.x = value;               
-                    }
-                ); 
+            target  = new THREE.Bone();
+            this.scene.add( target );
+            let transfControl = new TransformControls( this.camera, this.renderer.domElement );
+            transfControl.addEventListener( 'dragging-changed',  ( event ) => { this.controls.enabled = ! event.value; } );
+            transfControl.attach( target );
+            transfControl.size = 0.6;
+            transfControl.name = "control"+ chain.name;
+            this.scene.add( transfControl );
+        }
+        target.name = 'IKTarget' + chain.name;
+      
+        this.skeleton.bones.push(target)
+        this.skeleton.boneInverses.push(new THREE.Matrix4()) ;
+        this.skeleton.computeBoneTexture();
+        this.skeleton.update();
 
-                subfolder.add(this.chainsCCDIK[i].links[j], "limitY").listen();
-                subfolder.add(this.chainsCCDIK[i].links[j].rotationMin, "y", -2*Math.PI, 2*Math.PI) 
-                .name("Min")         
-                .onChange(                    
-                    value => {
-                        this.chainsCCDIK[i].links[j].rotationMin.y = value;             
-                    }
-                ); 
+        //Create array of chain bones
+        let origin = this.skeleton.bones[chain.origin];
+        let endEffector = this.skeleton.bones[chain.endEffector];
+        let bones = [];
+        
+        let bone = endEffector;
+        let links = [];
+        while(bone.name != origin.parent.name){
+            let i = this.skeleton.bones.indexOf(bone);
+            bones.push(i);
+            links.push({index:i, limitX: false, limitY: false, limitZ: false, rotationMin: new THREE.Vector3(-2*Math.PI, -2*Math.PI, -2*Math.PI), rotationMax: new THREE.Vector3(2*Math.PI, 2*Math.PI, 2*Math.PI)});
+         
+            bone = bone.parent;
+            
+        }
 
-                subfolder.add(this.chainsCCDIK[i].links[j].rotationMax, "y", -2*Math.PI, 2*Math.PI) 
-                .name("Max")      
-                .onChange(          
-                    value => {
-                        this.chainsCCDIK[i].links[j].rotationMax.y = value;            
-                    }
-                ); 
+        let constraints = [];
+        constraints.length = bones.length;
+        constraints.fill(null);
 
-                subfolder.add(this.chainsCCDIK[i].links[j], "limitZ").listen();
-                subfolder.add(this.chainsCCDIK[i].links[j].rotationMin, "z", -2*Math.PI, 2*Math.PI) 
-                .name("Min")             
-                .onChange(                     
-                    value => {
-                        this.chainsCCDIK[i].links[j].rotationMin.z = value;                                      
-                    }
-                ); 
-                subfolder.add(this.chainsCCDIK[i].links[j].rotationMax, "z", -2*Math.PI, 2*Math.PI) 
-                .name("Max")        
-                .onChange(                      
-                    value => {
-                        this.chainsCCDIK[i].links[j].rotationMax.z = value;                                          
-                    }
-                ); 
+        // FABRIK CHAIN
+        let fabrikChain =  {
+            name: chain.name,
+            bones: bones, 
+            constraints:   constraints,
+            target: target // OBject3D (or equivalents) for now. It must be in the scene
+        }
+        this.FABRIKSolver = new FABRIKSolver( this.skeleton );
+        this.fabrikChains.push(fabrikChain);
+        this.FABRIKSolver.createChain(fabrikChain.bones, fabrikChain.constraints, fabrikChain.target);
+
+        links.shift(0,1)
+        
+        //CCDIK CHAIN
+        let CCDIKChain =  {
+            name: chain.name,
+            effector: chain.endEffector,
+            target: this.skeleton.bones.length - 1, // OBject3D (or equivalents) for now. It must be in the scene
+            links:  links
+        }
+        
+        this.chains.push(CCDIKChain);
+        this.CCDIKSolver = null;
+        this.CCDIKSolver = new CCDIKSolver( this.model, this.chains );
+
+        
+        if(callback)
+            callback();
+    }
+
+    removeChain(chainName, callback = null) {
+        for(let i = 0; i < this.chains.length; i++) {
+            if(this.chains[i].name == chainName) {
+                this.chains.splice(i,1);
+                this.fabrikChains.splice(i,1);
+                //remove chain from solvers
+                this.CCDIKSolver.iks.splice(i,1)
+                this.FABRIKSolver.chains.splice(i,1);
+                //remove bone related to target
+                let b = this.skeleton.bones.indexOf(this.skeleton.getBoneByName("IKTarget"+chainName));
+                this.skeleton.bones.splice(b,1);
+                this.skeleton.boneInverses.splice(b,1) ;
+                this.skeleton.computeBoneTexture();
+                this.skeleton.update();
+                //remove target from the scene
+                let t = this.scene.getObjectByName("IKTarget"+chainName);
+                this.scene.remove(t);
+                let c = this.scene.getObjectByName("control"+chainName);
+                c.detach(t);
+                this.scene.remove(c);
             }
-
         }
     }
+
     animate() {
 
-        requestAnimationFrame( this.animate.bind(this) );
-
+        
         let delta = this.clock.getDelta();
         let et = this.clock.getElapsedTime();
-
-       // if ( this.mixer ) { this.mixer.update(delta); }
-
+        
+        // if ( this.mixer ) { this.mixer.update(delta); }
+        
         // EVA correct hand's size
         //this.model.getObjectByName("mixamorig_RightHand").scale.set( 0.85, 0.85, 0.85 );
         //this.model.getObjectByName("mixamorig_LeftHand").scale.set( 0.85, 0.85, 0.85 );
-
-        //this.skeleton.pose();
-        for( let i = 0; i<this.skeleton.bones.length; ++i){
-            this.skeleton.bones[i].scale.set(1,1,1);
-        }
-
+        
+        
         if(this.CCDIKSolver && this.FABRIKSolver) {
             switch(this.solver) {
                 case "CCDIK":
                     this.CCDIKSolver.update();
                     break;
-
+                    
                 case "FABRIK":
                     this.FABRIKSolver.update();
                     break;
-
+                    
                 case "MIX":
                     this.FABRIKSolver.update();
                     this.CCDIKSolver.update();
                     break;
             }
         }
-
-            
+                
+        this.gizmo.update(true, et);
         this.renderer.render( this.scene, this.camera );
+        requestAnimationFrame( this.animate.bind(this) );
     }
     
     onKeyDown ( e ){
