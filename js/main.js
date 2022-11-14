@@ -463,7 +463,7 @@ class App {
             target: target // OBject3D (or equivalents) for now. It must be in the scene
         }
         character.FABRIKSolver = new FABRIKSolver( character.skeleton );
-        //character.fabrikChains.push(fabrikChain);
+        character.fabrikChains.push(fabrikChain);
         character.FABRIKSolver.createChain(fabrikChain.bones, fabrikChain.constraints, fabrikChain.target, fabrikChain.name);
 
         links.shift(0,1)
@@ -489,10 +489,10 @@ class App {
         for(let i = 0; i < character.chains.length; i++) {
             if(character.chains[i].name == chainName) {
                 character.chains.splice(i,1);
-                // character.fabrikChains.splice(i,1);
+                character.fabrikChains.splice(i,1);
                 //remove chain from solvers
                 character.CCDIKSolver.iks.splice(i,1)
-                character.FABRIKSolver.chains.splice(i,1);
+                character.FABRIKSolver.removeChain(chainName);
                 //remove bone related to target
                 let b = character.skeleton.bones.indexOf(character.skeleton.getBoneByName("IKTarget"+chainName));
                 character.skeleton.bones.splice(b,1);
@@ -576,6 +576,7 @@ class Character {
         this.url = url;
         this.model = null;
         this.chains = [];
+        this.fabrikChains = [];
         this.skeleton = null;
         this.skeletonHelper = null;
         this.FABRIKSolver = null;

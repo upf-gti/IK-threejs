@@ -206,18 +206,18 @@ class GUI {
             /*----------------------------------------------- FABRIK Inspector -----------------------------------------------*/
             else if(this.editor.solver == "FABRIK") {
 
-                let fabrikChains = this.editor.currentModel.FABRIKSolver.chains;
+                let fabrikChains = this.editor.currentModel.fabrikChains;//this.editor.currentModel.FABRIKSolver.chains;
                 for(let i = 0; i < fabrikChains.length; i++){
                     widgets.addTitle(fabrikChains[i].name, {});
                     
                     let bones = this.editor.currentModel.skeleton.bones;
-                    for(let j = fabrikChains[i].chain.length - 1; j >= 0; j--){
-                        widgets.addInfo("Bone", bones[fabrikChains[i].chain[j]].name);
+                    for(let j = fabrikChains[i].bones.length - 1; j >= 0; j--){
+                        widgets.addInfo("Bone", bones[fabrikChains[i].bones[j]].name);
                         widgets.widgets_per_row = 1;
                         let constraint = fabrikChains[i].constraints[j];
                         if(constraint) {
                             let types = Object.keys(FABRIKSolver.JOINTTYPES);
-                            widgets.addString("Constraint type", types[constraint.type - 1], {disabled: true});
+                            widgets.addString("Constraint type", types[constraint.type], {disabled: true});
 
                             for(let c in constraint) {
                                 if(c == "type") 
@@ -227,15 +227,17 @@ class GUI {
                                         for ( let k = 0; k < v.length; ++k ){ constraint[c][k] = v[k]; }
                                     }else{ constraint[c] = v; }
                                     this.editor.currentModel.FABRIKSolver.setConstraintToBone( fabrikChains[i].name, j, constraint ); });
+                                    fabrikChains[i].constraints[j] = constraint;
                             }
                             widgets.addButton(null, "Remove constraint", { callback: v => {
 
                                 this.editor.currentModel.FABRIKSolver.setConstraintToBone( fabrikChains[i].name, j, null );
+                                fabrikChains[i].constraints[j] = null;
                                 widgets.refresh();
                             }})
                         }else{
                             widgets.addButton(null, "Add constraint", { callback: v => {
-                                this.createFabrikConstraintDialog(i, j, bones[fabrikChains[i].chain[j]].name, widgets.refresh.bind(widgets));
+                                this.createFabrikConstraintDialog(i, j, bones[fabrikChains[i].bones[j]].name, widgets.refresh.bind(widgets));
                             }})
                         }
                         widgets.addSeparator();    
@@ -362,6 +364,8 @@ class GUI {
                 constraintsAttributes = constraint.omni;
             }
             for(let i in constraintsAttributes) {
+                if(i == 'type')
+                    continue;
                 inspector.addDefault(i, constraintsAttributes[i], {callback: v => {
                     constraintsAttributes[i] = v;
                 } });
@@ -379,7 +383,7 @@ class GUI {
                 else {
                     newConstraint = constraint.omni;
                 }
-                // this.editor.fabrikChains[chainIdx].constraints[chainBoneIdx] = newConstraint;
+                this.editor.currentModel.fabrikChains[chainIdx].constraints[chainBoneIdx] = newConstraint;
                 this.editor.currentModel.FABRIKSolver.setConstraintToBone( this.editor.currentModel.FABRIKSolver.chains[chainIdx].name, chainBoneIdx, newConstraint);
                 dialog.close();
                 if(callback)
