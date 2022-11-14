@@ -385,9 +385,9 @@ class App {
 
         if(constraints) {
 
-            this.FABRIKSolver.createChain( this.fabrikChains[0].bones, this.fabrikChains[0].constraints, this.fabrikChains[0].target  ); 
+            this.FABRIKSolver.createChain( this.fabrikChains[0].bones, this.fabrikChains[0].constraints, this.fabrikChains[0].target, this.fabrikChains[0].name ); 
 
-            this.FABRIKSolver.createChain( this.fabrikChains[1].bones, this.fabrikChains[1].constraints, this.fabrikChains[1].target );  
+            this.FABRIKSolver.createChain( this.fabrikChains[1].bones, this.fabrikChains[1].constraints, this.fabrikChains[1].target, this.fabrikChains[1].name );  
 
 
         }
@@ -471,7 +471,7 @@ class App {
         }
         this.FABRIKSolver = new FABRIKSolver( this.skeleton );
         this.fabrikChains.push(fabrikChain);
-        this.FABRIKSolver.createChain(fabrikChain.bones, fabrikChain.constraints, fabrikChain.target);
+        this.FABRIKSolver.createChain(fabrikChain.bones, fabrikChain.constraints, fabrikChain.target, fabrikChain.name);
 
         links.shift(0,1)
         

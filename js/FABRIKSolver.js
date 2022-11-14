@@ -161,6 +161,13 @@ class FABRIKSolver {
             if ( this.chains[i].name === name ){ this.chains.splice(i, 1); }
         }
     }
+
+    /**
+     * removes all chains 
+     */
+    removeAllChains () {
+        this.chains = [];
+    }
     
     /** O(N)
      * @param {string} name
@@ -211,7 +218,7 @@ class FABRIKSolver {
         switch( newConstraint.type ){
             case FABRIKSolver.JOINTTYPES.HINGE: c = new JCHinge( this._boneDirs[ chain[ i-1 ] ] ); break;
             case FABRIKSolver.JOINTTYPES.BALLSOCKET: c = new JCBallSocket( this._boneDirs[ chain[ i-1 ] ] ); break;
-            default: c = new JointConstraint( this._boneDirs[ chainInfo.chain[ i-1 ] ] ); break;
+            default: c = new JointConstraint( this._boneDirs[ chain[ i-1 ] ] ); break;
         }
 
         c.setConstraint( newConstraint );
@@ -493,7 +500,7 @@ class JointConstraint{
                 swingCorrectedAxis.set( -boneDir.y, boneDir.x, boneDir.z ); 
                 swingCorrectedAxis.crossVectors( swingCorrectedAxis, boneDir ); // find any axis perpendicular to bone
                 swingCorrectedAxis.normalize();
-                swing.setFromAxisAngle( swingAxis, Math.PI ); // rotate 180º
+                swing.setFromAxisAngle( swingCorrectedAxis, Math.PI ); // rotate 180º
                 swing.normalize();
             }
             else{ swing.set(0,0,0,1); } // same vector as twist. No swing required
