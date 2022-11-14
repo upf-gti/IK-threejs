@@ -58,8 +58,8 @@ class GUI {
         $(root.content).append(widgets.root);
         const makePretitle = (src) => { return "<img src='data/imgs/mini-icon-"+src+".png' style='margin-right: 4px;margin-top: 6px;'>"; }
         
-        widgets.on_refresh = (o) => {
-            o = o || {};
+        widgets.on_refresh = () => {
+            
             widgets.clear();
             //Character Selector
             widgets.addSection("Character", { pretitle: makePretitle('stickman') });
@@ -67,6 +67,7 @@ class GUI {
                 // this.editor.currentModel = v;
                 // this.editor.initCharacter();
                 this.editor.changeCurrentModel(v);
+                widgets.refresh();
             }});
 
             //Solver Selector
@@ -217,14 +218,19 @@ class GUI {
                         if(constraint) {
                             let types = Object.keys(FABRIKSolver.JOINTTYPES);
                             widgets.addString("Constraint type", types[constraint.type - 1], {disabled: true});
+
                             for(let c in constraint) {
                                 if(c == "type") 
                                     continue;
-                                widgets.addDefault(c, constraint[c])
+                                widgets.addDefault(c, constraint[c], v=>{
+                                    if ( v.length > 0 ){
+                                        for ( let k = 0; k < v.length; ++k ){ constraint[c][k] = v[k]; }
+                                    }else{ constraint[c] = v; }
+                                    this.editor.currentModel.FABRIKSolver.setConstraintToBone( fabrikChains[i].name, j, constraint ); });
                             }
                             widgets.addButton(null, "Remove constraint", { callback: v => {
-                                fabrikChains[i].constraints[j] = null;
-                                this.editor.currentModel.FABRIKSolver.chains[i].constraints[j] = null;
+
+                                this.editor.currentModel.FABRIKSolver.setConstraintToBone( fabrikChains[i].name, j, null );
                                 widgets.refresh();
                             }})
                         }else{
@@ -299,7 +305,7 @@ class GUI {
                     return;
                 }
                 this.editor.addChain(this.editor.currentModel, newChain,widgets.refresh.bind(widgets) );
-             
+                
             }})
             btn.getElementsByTagName("button")[0].style["background-color"] =  "cadetblue";
         }
@@ -317,56 +323,64 @@ class GUI {
         inspector.addTitle(boneName);
         let types = Object.keys(FABRIKSolver.JOINTTYPES);
         let constraint = {
-            type: FABRIKSolver.JOINTTYPES.BALLSOCKET,
-            ballsocket: {
-                twist: [ -Math.PI*0.25, Math.PI*0.25 ], 
-                polar:[0, Math.PI*0.45]
+            type: FABRIKSolver.JOINTTYPES.OMNI,
+            omni: {
+                type: FABRIKSolver.JOINTTYPES.OMNI,
+                twist:[0,Math.PI]
             },
             hinge: {
+                type: FABRIKSolver.JOINTTYPES.HINGE,
                 twist:[ 0, 0.0001 ], 
                 axis:[1,0,0], 
                 min: Math.PI, 
                 max: Math.PI * 1.8 
+            },
+            ballsocket: {
+                type: FABRIKSolver.JOINTTYPES.BALLSOCKET,
+                twist: [ -Math.PI*0.25, Math.PI*0.25 ],
+                axis: [0,0,1], 
+                polar:[0, Math.PI*0.45],
+                azimuth: [0,Math.PI*0.5],
             }
         };
         inspector.on_refresh = (o) => {
             inspector.clear();
             inspector.widgets_per_row = 1;
-            inspector.addCombo("Constraint type", types[constraint.type - 1], {values: types, callback: v => {
+            inspector.addCombo("Constraint type", types[constraint.type], {values: types, callback: v => {
                 constraint.type = FABRIKSolver.JOINTTYPES[v];
                 inspector.refresh();
             }});
 
+            let constraintsAttributes = null;
             if(constraint.type == FABRIKSolver.JOINTTYPES.HINGE ) {
-                for(let i in constraint.hinge) {
-                    inspector.addDefault(i, constraint.hinge[i], {callback: v => {
-                        constraint.hinge[i] = v;
-                    } })
-                }
+                constraintsAttributes = constraint.hinge;
+            }
+            else if (constraint.type == FABRIKSolver.JOINTTYPES.BALLSOCKET) {
+                constraintsAttributes = constraint.ballsocket;
             }
             else {
-                for(let i in constraint.ballsocket) {
-                    inspector.addDefault(i, constraint.ballsocket[i], {callback: v => {
-                        constraint.ballsocket[i] = v;
-                    } })
-                }
+                constraintsAttributes = constraint.omni;
+            }
+            for(let i in constraintsAttributes) {
+                inspector.addDefault(i, constraintsAttributes[i], {callback: v => {
+                    constraintsAttributes[i] = v;
+                } });
             }
             inspector.widgets_per_row = 2;
             inspector.addButton(null, "Add", { callback: v => {
+                let newConstraint = null;
                 //add constraint to the chain               
                 if(constraint.type == FABRIKSolver.JOINTTYPES.HINGE) {
-                    constraint.hinge.type = constraint.type;
-                    this.editor.currentModel.FABRIKSolver.chains[chainIdx].constraints[chainBoneIdx] = constraint.hinge;
-                    // this.editor.FABRIKSolver.chains[chainIdx].constraints[chainBoneIdx] = constraint.hinge;
-
-                    //--TO DO-- call FABRIKSolver.fixConstrants  ---> create addConstraint on solver?
+                    newConstraint = constraint.hinge;
+                }
+                else if ( constraint.type == FABRIKSolver.JOINTTYPES.BALLSOCKET ){
+                    newConstraint = constraint.ballsocket;
                 }
                 else {
-                    constraint.hinge.type = constraint.type;
-                    this.editor.currentModel.FABRIKSolver.chains[chainIdx].constraints[chainBoneIdx] = constraint.ballsocket;
-                    // this.editor.FABRIKSolver.chains[chainIdx].constraints[chainBoneIdx] = constraint.ballsocket;
-                    //--TO DO-- call FABRIKSolver.fixConstrants  ---> create addConstraint on solver?
+                    newConstraint = constraint.omni;
                 }
+                // this.editor.fabrikChains[chainIdx].constraints[chainBoneIdx] = newConstraint;
+                this.editor.currentModel.FABRIKSolver.setConstraintToBone( this.editor.currentModel.FABRIKSolver.chains[chainIdx].name, chainBoneIdx, newConstraint);
                 dialog.close();
                 if(callback)
                     callback();

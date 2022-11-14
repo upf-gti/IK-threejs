@@ -15,7 +15,7 @@ class Gizmo {
         window.trans = transform;
         transform.setSpace( 'local' );
         transform.setMode( 'translate' );
-        transform.addEventListener( 'change', e => { console.log(e)});
+        //transform.addEventListener( 'change', e => { console.log(e)});
         transform.setSize(0.2);
         transform.addEventListener( 'objectChange', e => {
             this.updateBones();

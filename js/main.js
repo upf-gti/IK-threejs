@@ -336,8 +336,21 @@ class App {
      * @params
     * constraints: Boolean that indicates if the chains have to be constrained
     */
-    initFabrik(constraints) {
-
+    initFabrik() {
+        this.chainsFABRIK = [
+            {
+                name: "leftArm",
+                chain: [10, 9, 8], 
+                constraints: [ null,    {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, Math.PI*0.5 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.5], azimuth:[0, Math.PI*2-0.0001]}], 
+                target: this.IKTargetArm // OBject3D (or equivalents) for now. It must be in the scene
+            },
+            { 
+                name: "leftLeg",
+                chain: [33, 32, 31], 
+                constraints:  [ null,    {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, 0.0001 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.45], azimuth:[0, Math.PI*2-0.0001]}], 
+                target:  this.IKTargetLeg // OBject3D (or equivalents) for now. It must be in the scene
+            }
+        ]
         this.FABRIKSolver = new FABRIKSolver( this.skeleton );
         this.fabrikChains = [ 
             {
@@ -364,9 +377,9 @@ class App {
 
         if(constraints) {
 
-            this.FABRIKSolver.createChain( this.fabrikChains[0].bones, this.fabrikChains[0].constraints, this.fabrikChains[0].target  ); 
+            this.FABRIKSolver.createChain( this.fabrikChains[0].bones, this.fabrikChains[0].constraints, this.fabrikChains[0].target, this.fabrikChains[0].name ); 
 
-            this.FABRIKSolver.createChain( this.fabrikChains[1].bones, this.fabrikChains[1].constraints, this.fabrikChains[1].target );  
+            this.FABRIKSolver.createChain( this.fabrikChains[1].bones, this.fabrikChains[1].constraints, this.fabrikChains[1].target, this.fabrikChains[1].name );  
 
 
         }
@@ -451,7 +464,7 @@ class App {
         }
         character.FABRIKSolver = new FABRIKSolver( character.skeleton );
         //character.fabrikChains.push(fabrikChain);
-        character.FABRIKSolver.createChain(fabrikChain.bones, fabrikChain.constraints, fabrikChain.target);
+        character.FABRIKSolver.createChain(fabrikChain.bones, fabrikChain.constraints, fabrikChain.target, fabrikChain.name);
 
         links.shift(0,1)
         
