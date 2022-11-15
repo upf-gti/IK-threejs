@@ -1,6 +1,10 @@
 # FABRIKSolver - ThreeJs
 A solver for IK with FABRIK Algorithm for ThreeJs
 
+```javascript
+function
+
+```
 
 # Static Members
 
@@ -69,7 +73,7 @@ Modifies a constraint of a bone in an existing chain.
 
 - chainName : (string) Name of chain to fetch.
 - idxBoneInChain : (int) Index in the chain array (not the actual bone number).
-- newConstraint : (object) Object with all desired attributes for that constraint. See [JOINTTYPES Member](#jointtypes) and [Constraint Types](#constraint_types).
+- newConstraint : (object) Object with all desired attributes for that constraint. See [JOINTTYPES Member](#jointtypes) and [Constraint Types](./Constraing%20Types.md).
 
 Returns **true** if successful, **false** otherwise.
 
