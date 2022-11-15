@@ -103,6 +103,7 @@ class Gizmo {
         this.bonePoints = new THREE.Points( geometry, pointsShaderMaterial );
         this.bonePoints.name = "GizmoPoints";
         this.bonePoints.renderOrder = 1;
+        this.scene.remove(this.scene.getObjectByName("GizmoPoints"));
         this.scene.add( this.bonePoints );
         this.raycaster = new THREE.Raycaster();
         this.raycaster.params.Points.threshold = 0.05;

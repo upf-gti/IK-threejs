@@ -19,25 +19,17 @@ class App {
         this.camera = null;
         this.controls = null;
 
-        
-        // current model selected
-        this.model = null;
-        this.mixer = null;
-        //this.skeletonHelper = null;
-
-        this.msg = {};
-
-        // this.chains = [];
-        // this.fabrikChains = [];
+        //Current solver selected 
         this.solvers = ["CCDIK", "FABRIK", "MIX"];
         this.solver = this.solvers[0];
-        this.modelsNames = ["Eva", "LowPoly"];
-        // this.currentModel = this.models[0];
+        
+        // current model selected
         let eva = new Character("Eva", "./data/models/Eva_Y2.glb");
+        this.modelsNames = ["Eva", "LowPoly"];
         let lowPoly = new Character("LowPoly", "./data/models/lowPoly/woman.gltf");
         this.models = [eva, lowPoly];
-        
         this.currentModel = this.models[1];
+
         this.gui = new GUI(this);        
     
     }
@@ -51,8 +43,6 @@ class App {
         this.renderer = new THREE.WebGLRenderer( { antialias: true } );
         this.renderer.setPixelRatio( window.devicePixelRatio );
         this.renderer.setSize( window.innerWidth, window.innerHeight );
-        //this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        //this.renderer.toneMappingExposure = 0.7;
         this.renderer.outputEncoding = THREE.sRGBEncoding;
         this.renderer.shadowMap.enabled = true;
         this.renderer.domElement.id = "webgl-canvas";
@@ -68,10 +58,9 @@ class App {
         this.controls.target.set(0.0, 1.3, 0);
         this.controls.update();
 
-        // so the screen is not black while loading
-        this.renderer.render( this.scene, this.camera );
-        this.initCharacter();
         this.gizmo = new Gizmo(this);
+        
+        this.renderer.render( this.scene, this.camera );
         
         window.addEventListener( 'resize', this.onWindowResize.bind(this) );
         
@@ -99,15 +88,17 @@ class App {
         dirLight.position.set( 3,5,3 );
         this.scene.add( dirLight );
 
+        //load models and add them to the scene
+        this.initCharacter();
+
     }
 
-    initCharacter() {
-        
+    initCharacter() {     
 
+        //called after load the 3D model
         function loadModel ( callback, character, glb ){
             character.model = glb.scene;
             
-            //model.rotateOnAxis (new THREE.Vector3(1,0,0), -Math.PI/2);
             character.model.castShadow = true;
             const textureLoader = new THREE.TextureLoader();
             character.model.traverse( (object) => {
@@ -134,12 +125,9 @@ class App {
                 character.model.scale.set(0.01,0.01,0.01);
             } else{
                 //woman.gltf
-                // this.model.position.set(0.05, 0.8, 0 );
-                // this.model.rotateY(-Math.PI/2)
                 character.model.scale.set(0.25,0.25,0.25);
             }
 
-            //this.skeleton = this.model.getObjectByName("Woman").skeleton;
             character.model.skeleton = character.skeleton;
             character.bonesIdxs = {};
             for(let i = 0; i < character.skeleton.bones.length; i++) {
@@ -163,42 +151,52 @@ class App {
                     character.bonesIdxs["LeftHand"] = i;
                 }
             }
-            character.model.name = "Character_"+character.name;
+
+            //Add character to the scene and put it visible if it's the current model selected
+            character.model.name = "Character_" + character.name;
             character.model.visible = this.currentModel.name == character.name;
             this.scene.add(character.model);
             
+            //Add skeleton helper's character to the scene and put it visible if it's the current model selected
             character.skeletonHelper = new THREE.SkeletonHelper( character.model );
             character.skeletonHelper.visible = true;
             character.skeletonHelper.frustumCulled = false;
             character.skeletonHelper.name = "SkeletonHelper_" + character.name;
             character.skeletonHelper.visible = this.currentModel.name == character.name;;
             this.scene.add(character.skeletonHelper);
-            // load the actual animation to play
-            //this.mixer = new THREE.AnimationMixer( model );
 
-            if ( callback ){ callback(character); }
-
-        }
-
-
-        function loadfinished(character) {
-    
-            
-            window.addEventListener("keydown", this.onKeyDown.bind(this));
-            
             this.addChain(character, {name:"Arm", origin: character.bonesIdxs["LeftArm"], endEffector: character.bonesIdxs["LeftHand"]}, null, new THREE.Vector3(1,1,0));
-            this.initGUI();
-
             if(this.currentModel.name == character.name)
                 this.gizmo.begin(character.skeletonHelper)
-            this.animate();
-            $('#loading').fadeOut(); //hide();
+
+            if ( callback ){ 
+                callback(character); 
+            }
+
         }
-        for(let i in this.models) {
-            this.loaderGLB.load( this.models[i].url, loadModel.bind( this, loadfinished.bind(this),  this.models[i] ) );
+
+        function loadfinished(character) {
+          
+            window.addEventListener("keydown", this.onKeyDown.bind(this));
+            
+            this.initGUI();
+            this.animate();
+
+            $('#loading').fadeOut(); //hide
+        }
+
+        //Load all models
+        for(let i = 0; i < this.models.length; i++) {
+
+            let callback = null;
+            if(i == this.models.length - 1)
+                callback = loadfinished.bind(this);
+                
+            this.loaderGLB.load( this.models[i].url, loadModel.bind( this, callback,  this.models[i] ) );
         }
         
     }
+
     changeCurrentModel(name) {
 
         this.scene.getObjectByName("Character_"+this.currentModel.name).visible = false;
@@ -211,184 +209,6 @@ class App {
                 this.scene.getObjectByName("SkeletonHelper_"+name).visible = true;
                 break;
             }
-        }
-    }
-    /**
-    * @description
-    * Initialization of CCD solver. Add Left Arm and Left Leg chains [Bone origin, ..., Bone end-effector] to the solver with their corresponding constraints and targetgs.
-    */
-    initCCDIK(){
-        if(this.currentModel == "LowPoly") {
-
-            this.chains = [
-                {
-                    name: 'leftArm',
-                    target: this.skeleton.bones.length - 2, // "target_hand_l"
-                    effector: this.bonesIdxs["LeftHand"], // "hand_l"
-                    links: [
-                        {
-                            index: this.bonesIdxs["LeftForeArm"], // "lowerarm_l"
-                            limitX: true,
-                            limitY: true,
-                            limitZ: true,
-                            rotationMin: new THREE.Vector3(0,   0,   0 ), //68, 103.13, -22.92
-                            rotationMax: new THREE.Vector3(0, 1.1, 1.1 ) // 97, -63, 17
-                        },
-                        {
-                            index: this.bonesIdxs["LeftArm"], // "Upperarm_l"
-                            limitX: true,
-                            limitY: true,
-                            limitZ: true,
-                            rotationMin: new THREE.Vector3(-1.8, -0.7,  -2 ), //6, -40, 103.13
-                            rotationMax: new THREE.Vector3( 1.4,  0.0, 1.8 ) // 63, 0, -80 
-                        },
-                    ],
-                },
-                {
-                    name: 'leftLeg',
-                    target: this.skeleton.bones.length - 1, // "target_leg_l"
-                    effector: this.bonesIdxs["LeftFoot"], // "foot_l"
-                    links: [
-                        {
-                            index: this.bonesIdxs["LeftLeg"], // "leg_l"
-                            limitX: true,
-                            limitY: true,
-                            limitZ: true,
-                            rotationMin: new THREE.Vector3(-Math.PI, -0.4, 0 ), //68, 103.13, -22.92
-                            rotationMax: new THREE.Vector3(       0,  0.4, 0 ) // 97, -63, 17
-                        },
-                        {
-                            index: this.bonesIdxs["LeftUpLeg"], // "Upperleg_l"
-                            limitX: true,
-                            limitY: true,
-                            limitZ: true,
-                            rotationMin: new THREE.Vector3(-1.8, -0.4, -Math.PI  ), //6, -40, 103.13
-                            rotationMax: new THREE.Vector3( 1.4,  0.4,  Math.PI ) // 63, 0, -80 
-                        },
-                    ],
-                }
-            ];
-            
-        }
-        else {
-            this.chains = [
-                {
-                    name: 'leftArm',
-                    target: this.skeleton.bones.length - 2, // "target_hand_l"
-                    effector: this.bonesIdxs["LeftHand"], // "hand_l"
-                    links: [
-                        {
-                            index: this.bonesIdxs["LeftForeArm"], // "lowerarm_l"
-                            limitX: true,
-                            limitY: true,
-                            limitZ: true,
-                            rotationMin: new THREE.Vector3(0,   0,   0 ), //68, 103.13, -22.92
-                            rotationMax: new THREE.Vector3(0, 1.1, 1.1 ) // 97, -63, 17
-                        },
-                        {
-                            index: this.bonesIdxs["LeftArm"], // "Upperarm_l"
-                            limitX: true,
-                            limitY: true,
-                            limitZ: true,
-                            rotationMin: new THREE.Vector3(-1.8, -0.7,  -2 ), //6, -40, 103.13
-                            rotationMax: new THREE.Vector3( 1.4,  0.0, 1.8 ) // 63, 0, -80 
-                        },
-                    ],
-                },
-                {
-                    name: 'leftLeg',
-                    target: this.skeleton.bones.length - 1, // "target_leg_l"
-                    effector: this.bonesIdxs["LeftFoot"], // "foot_l"
-                    links: [
-                        {
-                            index: this.bonesIdxs["LeftLeg"], // "leg_l"
-                            limitX: false,
-                            limitY: false,
-                            limitZ: false,
-                            rotationMin: new THREE.Vector3(-Math.PI, -0.4, 0 ), //68, 103.13, -22.92
-                            rotationMax: new THREE.Vector3(       0,  0.4, 0 ) // 97, -63, 17
-                        },
-                        {
-                            index: this.bonesIdxs["LeftUpLeg"], // "Upperleg_l"
-                            limitX: false,
-                            limitY: false,
-                            limitZ: false,
-                            rotationMin: new THREE.Vector3(-1.8, -0.4, -Math.PI  ), //6, -40, 103.13
-                            rotationMax: new THREE.Vector3( 1.4,  0.4,  Math.PI ) // 63, 0, -80 
-                        },
-                    ],
-                }
-            ];
-        }
-        
-        this.CCDIKSolver = new CCDIKSolver( this.model, this.chains );
-        
-    }
-    
-    /**
-     * @description
-     * Initialization of FABRIK solver. Add Left Arm and Left Leg chains [Bone origin, ..., Bone end-effector] to the solver with their corresponding constraints and targetgs.
-     * @params
-    * constraints: Boolean that indicates if the chains have to be constrained
-    */
-    initFabrik() {
-        this.chainsFABRIK = [
-            {
-                name: "leftArm",
-                chain: [10, 9, 8], 
-                constraints: [ null,    {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, Math.PI*0.5 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.5], azimuth:[0, Math.PI*2-0.0001]}], 
-                target: this.IKTargetArm // OBject3D (or equivalents) for now. It must be in the scene
-            },
-            { 
-                name: "leftLeg",
-                chain: [33, 32, 31], 
-                constraints:  [ null,    {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, 0.0001 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.Pi*0.25 ], polar:[0, Math.PI*0.45], azimuth:[0, Math.PI*2-0.0001]}], 
-                target:  this.IKTargetLeg // OBject3D (or equivalents) for now. It must be in the scene
-            }
-        ]
-        this.FABRIKSolver = new FABRIKSolver( this.skeleton );
-        this.fabrikChains = [ 
-            {
-                name: "leftLeg",
-                bones: [this.bonesIdxs["LeftFoot"], this.bonesIdxs["LeftLeg"], this.bonesIdxs["LeftUpLeg"]], 
-                constraints:   [ 
-                        null,    
-                        {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, 0.0001 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   
-                        {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.PI*0.25 ], polar:[0, Math.PI*0.45]}
-                    ],
-                target: this.IKTargetLeg // OBject3D (or equivalents) for now. It must be in the scene
-            },
-            {
-                name: "leftArm",
-                bones: [ this.bonesIdxs["LeftHand"], this.bonesIdxs["LeftForeArm"], this.bonesIdxs["LeftArm"]], 
-                constraints: [ 
-                        null,    
-                        {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, Math.PI*0.5 ], axis:[1,0,0], min: Math.PI, max: Math.PI * 1.8 },   
-                        {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.PI*0.25 ], polar:[0, Math.PI*0.5]}
-                    ], 
-                target: this.IKTargetArm // OBject3D (or equivalents) for now. It must be in the scene     
-            }
-        ];
-
-        if(constraints) {
-
-            this.FABRIKSolver.createChain( this.fabrikChains[0].bones, this.fabrikChains[0].constraints, this.fabrikChains[0].target, this.fabrikChains[0].name ); 
-
-            this.FABRIKSolver.createChain( this.fabrikChains[1].bones, this.fabrikChains[1].constraints, this.fabrikChains[1].target, this.fabrikChains[1].name );  
-
-
-        }
-        else {
-            this.FABRIKSolver.createChain( 
-                [this.bonesIdxs["LeftFoot"], this.bonesIdxs["LeftLeg"], this.bonesIdxs["LeftUpLeg"]], 
-                [ null,    null,   null], 
-                this.IKTargetLeg // OBject3D (or equivalents) for now. It must be in the scene
-            );  
-            this.FABRIKSolver.createChain( 
-                [ this.bonesIdxs["LeftHand"], this.bonesIdxs["LeftForeArm"], this.bonesIdxs["LeftArm"]], 
-                [ null,    null,   null], 
-                this.IKTargetArm // OBject3D (or equivalents) for now. It must be in the scene
-            );  
         }
     }
 
@@ -454,8 +274,8 @@ class App {
         let fabrikChain =  {
             name: chain.name,
             bones: bones, 
-            constraints:   constraints,
-            target: target // OBject3D (or equivalents) for now. It must be in the scene
+            constraints: constraints,
+            target: target 
         }
         character.FABRIKSolver = new FABRIKSolver( character.skeleton );
         character.fabrikChains.push(fabrikChain);
@@ -467,14 +287,13 @@ class App {
         let CCDIKChain =  {
             name: chain.name,
             effector: chain.endEffector,
-            target: character.skeleton.bones.length - 1, // OBject3D (or equivalents) for now. It must be in the scene
+            target: character.skeleton.bones.length - 1, 
             links:  links
         }
-        //character.CCDIKChain.iks.push(CCDIKChain)
+      
         character.chains.push(CCDIKChain);
         character.CCDIKSolver = null;
         character.CCDIKSolver = new CCDIKSolver( character.model, character.chains );
-
         
         if(callback)
             callback();
