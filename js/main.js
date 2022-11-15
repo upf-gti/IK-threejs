@@ -194,11 +194,6 @@ class App {
             this.animate();
             $('#loading').fadeOut(); //hide();
         }
-
-        // this.scene.remove(this.scene.getObjectByName("Character"));
-        // this.scene.remove(this.scene.getObjectByName("SkeletonHelper"));
-        // let path = './data/models/';
-        // path += (this.currentModel == 'LowPoly') ? 'lowPoly/woman.gltf' : 'Eva_Y2.glb';
         for(let i in this.models) {
             this.loaderGLB.load( this.models[i].url, loadModel.bind( this, loadfinished.bind(this),  this.models[i] ) );
         }
@@ -547,16 +542,16 @@ class App {
     
     onKeyDown ( e ){
         switch( e.key ){
-            case 'a': this.FABRIKSolver.constraintsEnabler = !this.FABRIKSolver.constraintsEnabler; break; 
-            case '1': this.FABRIKSolver.iterations = 1; break;
-            case '2': this.FABRIKSolver.iterations = 2; break;
-            case '3': this.FABRIKSolver.iterations = 3; break;
-            case '4': this.FABRIKSolver.iterations = 4; break;
-            case '5': this.FABRIKSolver.iterations = 5; break;
-            case '6': this.FABRIKSolver.iterations = 6; break;
-            case '7': this.FABRIKSolver.iterations = 10; break;
-            case '8': this.FABRIKSolver.iterations = 20; break;
-            case '9': this.FABRIKSolver.iterations = 30; break;
+            case 'a': this.currentModel.FABRIKSolver.constraintsEnabler = !this.currentModel.FABRIKSolver.constraintsEnabler; break; 
+            case '1': this.currentModel.FABRIKSolver.iterations = 1; break;
+            case '2': this.currentModel.FABRIKSolver.iterations = 2; break;
+            case '3': this.currentModel.FABRIKSolver.iterations = 3; break;
+            case '4': this.currentModel.FABRIKSolver.iterations = 4; break;
+            case '5': this.currentModel.FABRIKSolver.iterations = 5; break;
+            case '6': this.currentModel.FABRIKSolver.iterations = 6; break;
+            case '7': this.currentModel.FABRIKSolver.iterations = 10; break;
+            case '8': this.currentModel.FABRIKSolver.iterations = 20; break;
+            case '9': this.currentModel.FABRIKSolver.iterations = 30; break;
         }
     }
 
