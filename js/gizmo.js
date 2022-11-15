@@ -15,9 +15,10 @@ class Gizmo {
         let transform = new TransformControls( editor.camera, editor.renderer.domElement );
         window.trans = transform;
         transform.setSpace( 'local' );
-        transform.setMode( 'translate' );
+        transform.setMode( 'rotate' );
         //transform.addEventListener( 'change', e => { console.log(e)});
         transform.setSize(0.2);
+        transform.enabled = false
         transform.addEventListener( 'objectChange', e => {
             this.updateBones();
 
@@ -40,7 +41,7 @@ class Gizmo {
             if(this.selectedBone == null)
             return;
 
-            const bone = this.editor.skeletonHelper.bones[this.selectedBone];
+            const bone = this.editor.currentModel.skeletonHelper.bones[this.selectedBone];
 
             if(enabled) {
                 this.undoSteps.push( {
@@ -263,8 +264,8 @@ class Gizmo {
         const geometry = this.bonePoints.geometry;
         const positionAttribute = geometry.getAttribute( 'position' );
         const colors = [];
-        const color = new THREE.Color(95/255, 158/255, 160/255);
-        const colorSelected = new THREE.Color(0.33, 0.8, 0.75);
+        const color = new THREE.Color(0.23, 0.7, 0.65);
+        const colorSelected = new THREE.Color(0.50, 1, 0.95);
 
         for ( let i = 0, l = positionAttribute.count; i < l; i ++ ) {
             (i != this.selectedBone ? color : colorSelected).toArray( colors, i * 3 );

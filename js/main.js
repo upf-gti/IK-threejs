@@ -229,26 +229,33 @@ class App {
 
         //Add target to the scene
         let target = null;
-        if(this['IKTarget'+chain.name] ){
-            target = this['IKTarget'+chain.name] ;
-        }else{
-
-            target  = new THREE.Bone();
-            target.position.copy(targetPos);
-            this.scene.add( target );
-            let transfControl = new TransformControls( this.camera, this.renderer.domElement );
-            transfControl.addEventListener( 'dragging-changed',  ( event ) => { this.controls.enabled = ! event.value; } );
-            transfControl.attach( target );
-            transfControl.size = 0.6;
-            transfControl.name = "control"+ chain.name;
-            this.scene.add( transfControl );
+        if(chain.target){
+            target = this.scene.getObjectByName(chain.target);
         }
-        target.name = 'IKTarget' + chain.name;
-      
-        character.skeleton.bones.push(target)
-        character.skeleton.boneInverses.push(new THREE.Matrix4()) ;
-        character.skeleton.computeBoneTexture();
-        character.skeleton.update();
+        if(!target){
+
+            if(this['IKTarget'+chain.name] ){
+                target = this['IKTarget'+chain.name] ;
+            }else{
+
+                target  = new THREE.Bone();
+                target.position.copy(targetPos);
+                this.scene.add( target );
+                let transfControl = new TransformControls( this.camera, this.renderer.domElement );
+                transfControl.addEventListener( 'dragging-changed',  ( event ) => { this.controls.enabled = ! event.value; } );
+                transfControl.addEventListener( 'mouseDown',  ( event ) => { this.gui.selectedTarget = event.target; } );
+                transfControl.attach( target );
+                transfControl.size = 0.6;
+                transfControl.name = "control"+ chain.name;
+                this.scene.add( transfControl );
+            }
+            target.name = 'IKTarget' + chain.name;
+        
+            character.skeleton.bones.push(target)
+            character.skeleton.boneInverses.push(new THREE.Matrix4()) ;
+            character.skeleton.computeBoneTexture();
+            character.skeleton.update();
+        }
 
         //Create array of chain bones
         let origin = character.skeleton.bones[chain.origin];
@@ -277,7 +284,8 @@ class App {
             constraints: constraints,
             target: target 
         }
-        character.FABRIKSolver = new FABRIKSolver( character.skeleton );
+        if(!character.FABRIKSolver)
+            character.FABRIKSolver = new FABRIKSolver( character.skeleton );
         character.fabrikChains.push(fabrikChain);
         character.FABRIKSolver.createChain(fabrikChain.bones, fabrikChain.constraints, fabrikChain.target, fabrikChain.name);
 
@@ -305,15 +313,20 @@ class App {
                 character.chains.splice(i,1);
                 character.fabrikChains.splice(i,1);
                 //remove chain from solvers
-                character.CCDIKSolver.iks.splice(i,1)
+                // character.CCDIKSolver.iks.splice(i,1)
                 character.FABRIKSolver.removeChain(chainName);
+                //remove target from the scene
+                for(let j = 0; j < character.fabrikChains.length; j++) {
+                    if(character.fabrikChains[j].target.name == character.fabrikChains[i].target.name) {
+                        return;
+                    }
+                }
                 //remove bone related to target
                 let b = character.skeleton.bones.indexOf(character.skeleton.getBoneByName("IKTarget"+chainName));
                 character.skeleton.bones.splice(b,1);
                 character.skeleton.boneInverses.splice(b,1) ;
                 character.skeleton.computeBoneTexture();
                 character.skeleton.update();
-                //remove target from the scene
                 let t = this.scene.getObjectByName("IKTarget"+chainName);
                 this.scene.remove(t);
                 let c = this.scene.getObjectByName("control"+chainName);
