@@ -5,7 +5,7 @@ import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/loa
 //import { CCDIKSolver } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/animation/CCDIKSolver.js';
 import { FABRIKSolver, CCDIKSolver } from './IKSolver.js'
 import { GUI } from './gui.js'
-import { Gizmo } from './gizmo.js'
+import { IKHelper } from './IKHelper.js'
 
 class App {
 
@@ -21,7 +21,7 @@ class App {
 
         //Current solver selected 
         this.solvers = ["CCDIK", "FABRIK", "MIX"];
-        this.solver = this.solvers[0];
+        this.solver = this.solvers[1];
         
         // current model selected
         let eva = new Character("Eva", "./data/models/Eva_Y2.glb");
@@ -58,7 +58,7 @@ class App {
         this.controls.target.set(0.0, 1.3, 0);
         this.controls.update();
 
-        this.gizmo = new Gizmo(this);
+        this.ikHelper = new IKHelper(this);
         
         this.renderer.render( this.scene, this.camera );
         
@@ -167,7 +167,7 @@ class App {
 
             this.addChain(character, {name:"Arm", origin: character.bonesIdxs["LeftArm"], endEffector: character.bonesIdxs["LeftHand"]}, null, new THREE.Vector3(1,1,0));
             if(this.currentModel.name == character.name)
-                this.gizmo.begin(character.skeletonHelper)
+                this.ikHelper.begin(character)
 
             if ( callback ){ 
                 callback(character); 
@@ -204,7 +204,7 @@ class App {
         for(let i in this.models) {
             if(this.models[i].name == name) {
                 this.currentModel = this.models[i];
-                this.gizmo.begin(this.models[i].skeletonHelper);
+                this.ikHelper.begin(this.models[i]);
                 this.scene.getObjectByName("Character_"+name).visible = true;
                 this.scene.getObjectByName("SkeletonHelper_"+name).visible = true;
                 break;
@@ -228,27 +228,35 @@ class App {
         }
 
         //Add target to the scene
-        let target = null;
-        if(this['IKTarget'+chain.name] ){
-            target = this['IKTarget'+chain.name] ;
-        }else{
-
-            target  = new THREE.Bone();
-            target.position.copy(targetPos);
-            this.scene.add( target );
-            let transfControl = new TransformControls( this.camera, this.renderer.domElement );
-            transfControl.addEventListener( 'dragging-changed',  ( event ) => { this.controls.enabled = ! event.value; } );
-            transfControl.attach( target );
-            transfControl.size = 0.6;
-            transfControl.name = "control"+ chain.name;
-            this.scene.add( transfControl );
+        let target = this.scene.getObjectByName('IKTarget' + chain.name);
+        if(chain.target){
+            target = this.scene.getObjectByName(chain.target);
         }
-        target.name = 'IKTarget' + chain.name;
-      
-        character.skeleton.bones.push(target)
-        character.skeleton.boneInverses.push(new THREE.Matrix4()) ;
-        character.skeleton.computeBoneTexture();
-        character.skeleton.update();
+        if(!target){
+
+            if(this['IKTarget'+chain.name] ){
+                target = this['IKTarget'+chain.name] ;
+            }
+            else{
+
+                target  = new THREE.Bone();
+                target.position.copy(targetPos);
+                this.scene.add( target );
+                let transfControl = new TransformControls( this.camera, this.renderer.domElement );
+                transfControl.addEventListener( 'dragging-changed',  ( event ) => { this.controls.enabled = ! event.value; } );
+                transfControl.addEventListener( 'mouseDown',  ( event ) => { this.gui.selectedTarget = event.target; } );
+                transfControl.attach( target );
+                transfControl.size = 0.6;
+                transfControl.name = "control"+ chain.name;
+                this.scene.add( transfControl );
+            }
+            target.name = 'IKTarget' + chain.name;
+        
+            character.skeleton.bones.push(target)
+            character.skeleton.boneInverses.push(new THREE.Matrix4()) ;
+            character.skeleton.computeBoneTexture();
+            character.skeleton.update();
+        }
 
         //Create array of chain bones
         let origin = character.skeleton.bones[chain.origin];
@@ -275,10 +283,10 @@ class App {
         }
         character.chains.push(ikChain);
         
-        character.FABRIKSolver = new FABRIKSolver( character.skeleton );
+        if ( !character.FABRIKSolver ){ character.FABRIKSolver = new FABRIKSolver( character.skeleton ); }
         character.FABRIKSolver.createChain(ikChain.bones, ikChain.constraints, ikChain.target, ikChain.name);
 
-        character.CCDIKSolver = new CCDIKSolver( character.skeleton );
+        if ( !character.CCDIKSolver ){ character.CCDIKSolver = new CCDIKSolver( character.skeleton ); }
         character.CCDIKSolver.createChain(ikChain.bones, ikChain.constraints, ikChain.target, ikChain.name);
 
         
@@ -293,13 +301,18 @@ class App {
                 //remove chain from solvers
                 character.CCDIKSolver.removeChain(chainName);
                 character.FABRIKSolver.removeChain(chainName);
+                //remove target from the scene
+                for(let j = 0; j < character.chains.length; j++) {
+                    if(character.chains[j].target.name == character.chains[i].target.name) {
+                        return;
+                    }
+                }
                 //remove bone related to target
                 let b = character.skeleton.bones.indexOf(character.skeleton.getBoneByName("IKTarget"+chainName));
                 character.skeleton.bones.splice(b,1);
                 character.skeleton.boneInverses.splice(b,1) ;
                 character.skeleton.computeBoneTexture();
                 character.skeleton.update();
-                //remove target from the scene
                 let t = this.scene.getObjectByName("IKTarget"+chainName);
                 this.scene.remove(t);
                 let c = this.scene.getObjectByName("control"+chainName);
@@ -340,7 +353,7 @@ class App {
             }
         }
                 
-        this.gizmo.update(true, et);
+        this.ikHelper.update(true, et);
         this.renderer.render( this.scene, this.camera );
     }
     
