@@ -9,8 +9,9 @@ let _quat4 = new THREE.Quaternion(); // swing
 let _vec3 = new THREE.Vector3();
 let _vec3_2 = new THREE.Vector3();
 let _vec3_3 = new THREE.Vector3();
+let _vec3_4 = new THREE.Vector3();
 
-let __vec3_1 = new THREE.Vector3();
+let __vec3_1 = new THREE.Vector3(); // constraints
 
 let _mat3 = new THREE.Matrix3();
 let _mat4 = new THREE.Matrix4();
@@ -59,15 +60,15 @@ Skeleton class holds all the information (see pose() and update() for more visua
 
 
     // RIGHT HANDED COORDS
-class FABRIKSolver {
+class BaseSolver {
        
     constructor ( skeleton ){
         this.skeleton = skeleton;
         this.chains = [];
         this.constraintsEnabler = true;
         this.iterations = 1;
-        this.sqThreshold = 0.00001;
-        
+        this.sqThreshold = 0.0000001;
+
         let numBones = this.skeleton.bones.length;
         // precompute bind rotations (to not compute them constantly). Used in constraints. (some T-poses have rotations already applied... that is why this is needed)
         this._bindQuats = [];
@@ -165,6 +166,7 @@ class FABRIKSolver {
         chainInfo.chain = chain;
         chainInfo.constraints = constraints;
         chainInfo.target = targetObj;
+        chainInfo.enabler = true;
         this.chains.push( chainInfo );
     }
 
@@ -193,6 +195,11 @@ class FABRIKSolver {
             if ( this.chains[i].name === name ){ return this.chains[i]; }
         }
         return null;
+    }
+
+    setChainEnabler( name, isEnabled ){
+        let chain = this.getChain( name );
+        if ( chain ){ chain.enabler = !!isEnabled; }
     }
 
     /**
@@ -277,8 +284,12 @@ class FABRIKSolver {
         bone.quaternion.normalize();
     }
 
+}
+BaseSolver.JOINTTYPES = { OMNI: 0, HINGE: 1, BALLSOCKET: 2 }; // omni is just the default no constrained joint
+
+
+class FABRIKSolver extends BaseSolver {
     update ( ){
-        // final step of rotations probably wrong. Matrixworld and matrix of parents and childs are not being updated. So bones are not being progressively snaped to their targets
         let bones = this.skeleton.bones;
         let positions = this._positions;
         let targetPositions = this._targetPositions;
@@ -289,13 +300,16 @@ class FABRIKSolver {
                 let chain = this.chains[ chainIdx ].chain;
                 let targetObj = this.chains[chainIdx].target;
 
+                if ( !this.chains[ chainIdx ].enabler ){ continue; }
+
                 // forward - move points to target
                 let currTargetPoint = _vec3;
                 if ( targetObj.getWorldPosition ){ targetObj.getWorldPosition( currTargetPoint ); }
                 else{ currTargetPoint.copy( targetObj.position ); }
                 
 
-                if ( currTargetPoint.distanceToSquared( bones[ chain[0] ].getWorldPosition(_vec3_2) ) <= this.sqThreshold ){ continue; }
+                _vec3_2.setFromMatrixPosition( bones[ chain[0] ].matrixWorld ); // avoid getWorldPosition, it will force-update every bone worldmatrix
+                if ( currTargetPoint.distanceToSquared( _vec3_2 ) <= this.sqThreshold ){ continue; }
                 
                 // current pose world positions
                 for (let i = 0; i < positions.length; ++i){
@@ -388,8 +402,89 @@ class FABRIKSolver {
                 }
             }  
         }
-    }
+    }    
 }
+
+FABRIKSolver.JOINTTYPES = BaseSolver.JOINTTYPES; // omni is just the default no constrained joint
+
+
+
+class CCDIKSolver extends BaseSolver {
+    update ( ){
+        let bones = this.skeleton.bones;
+        
+        for( let it = 0; it < this.iterations; ++it ){
+
+            for ( let chainIdx = 0; chainIdx < this.chains.length; ++chainIdx ){
+                let chain = this.chains[ chainIdx ].chain;
+                let targetObj = this.chains[chainIdx].target;
+
+                if ( !this.chains[ chainIdx ].enabler ){ continue; }
+
+                // world positions
+                let targetWorld = _vec3;
+                let effectorLocal = _vec3_2;
+                let targetLocal = _vec3_3;
+
+                if ( targetObj.getWorldPosition ){ targetObj.getWorldPosition( targetWorld ); }
+                else{ targetWorld.copy( targetObj.position ); }
+
+                // CCD
+                for ( let i = 1; i < chain.length; ++i ){
+                    let boneIdx = chain[i]; // parent
+                    
+                    // check if effector already reached target (in world space)
+                    effectorLocal.setFromMatrixPosition( bones[ chain[0] ].matrixWorld );
+                    if ( targetWorld.distanceToSquared(effectorLocal) <= this.sqThreshold ){ break; }
+
+
+                    let wToL = _mat4;
+                    wToL.copy( bones[ boneIdx ].matrixWorld );
+                    wToL.invert(); // maybe a matrix decomposition and manual inverse of elements is cheaper
+
+                    // transform to local 
+                    effectorLocal.applyMatrix4( wToL );
+//                  effectorLocal.applyQuaternion( bones[ boneIdx ].quaternion ); // apply bind quaternion 
+                    effectorLocal.normalize();
+                    targetLocal.copy( targetWorld );
+                    targetLocal.applyMatrix4( wToL );
+//                    targetLocal.applyQuaternion( bones[ boneIdx ].quaternion ); // apply bind quaternion 
+                    targetLocal.normalize();
+
+                    if ( targetLocal.lengthSq() < 0.00001 || effectorLocal.lengthSq() < 0.00001 ){ continue; }
+
+                    // find quaternion
+                    let axis = _vec3_4;
+                    let dot = effectorLocal.dot(targetLocal);
+                    let angle = 0;
+
+                    if ( dot > 1.0 ){ dot = 1.0; }
+                    if ( dot < -1.0 ){ dot = -1.0; }
+                    angle = Math.acos(dot);
+                    axis.crossVectors( effectorLocal, targetLocal );
+                    axis.normalize();
+
+                    if ( angle < 1e-5 ){ continue; }
+
+                    let quat = _quat;
+                    quat.setFromAxisAngle( axis, angle );
+                    
+                    bones[ boneIdx ].quaternion.multiply( quat );
+
+                    // constriants if any
+                    if( this.constraintsEnabler )
+                        this._applyConstraint( chainIdx, i );
+
+                    bones[ boneIdx ].updateMatrixWorld(true);
+
+
+                }               
+                
+            }  
+        }
+    }    
+}
+CCDIKSolver.JOINTTYPES = BaseSolver.JOINTTYPES; // omni is just the default no constrained joint
 
 
 // ---------------- JOINTS ---------------- 
@@ -679,7 +774,5 @@ class JCHinge extends JointConstraint {
     }
 }
 
-FABRIKSolver.JOINTTYPES = { OMNI: 0, HINGE: 1, BALLSOCKET: 2 }; // omni is just the default no constrained joint
 
-
-export{ FABRIKSolver };
+export{ FABRIKSolver, CCDIKSolver };

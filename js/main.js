@@ -2,10 +2,10 @@ import * as THREE from 'https://cdn.skypack.dev/three@0.136';
 import { OrbitControls } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/controls/TransformControls.js';
 import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/loaders/GLTFLoader.js';
-import { CCDIKSolver} from 'https://cdn.skypack.dev/three@0.136/examples/jsm/animation/CCDIKSolver.js';
-import { FABRIKSolver } from './FABRIKSolver.js'
+//import { CCDIKSolver } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/animation/CCDIKSolver.js';
+import { FABRIKSolver, CCDIKSolver } from './IKSolver.js'
 import { GUI } from './gui.js'
-import {Gizmo} from './gizmo.js'
+import { Gizmo } from './gizmo.js'
 
 class App {
 
@@ -256,44 +256,31 @@ class App {
         let bones = [];
         
         let bone = endEffector;
-        let links = [];
         while(bone.name != origin.parent.name){
             let i = character.skeleton.bones.indexOf(bone);
             bones.push(i);
-            links.push({index:i, limitX: false, limitY: false, limitZ: false, rotationMin: new THREE.Vector3(-2*Math.PI, -2*Math.PI, -2*Math.PI), rotationMax: new THREE.Vector3(2*Math.PI, 2*Math.PI, 2*Math.PI)});
-         
             bone = bone.parent;
-            
         }
 
+        // create constraints
         let constraints = [];
         constraints.length = bones.length;
         constraints.fill(null);
 
-        // FABRIK CHAIN
-        let fabrikChain =  {
+        let ikChain =  {
             name: chain.name,
             bones: bones, 
             constraints: constraints,
             target: target 
         }
-        character.FABRIKSolver = new FABRIKSolver( character.skeleton );
-        character.fabrikChains.push(fabrikChain);
-        character.FABRIKSolver.createChain(fabrikChain.bones, fabrikChain.constraints, fabrikChain.target, fabrikChain.name);
-
-        links.shift(0,1)
+        character.chains.push(ikChain);
         
-        //CCDIK CHAIN
-        let CCDIKChain =  {
-            name: chain.name,
-            effector: chain.endEffector,
-            target: character.skeleton.bones.length - 1, 
-            links:  links
-        }
-      
-        character.chains.push(CCDIKChain);
-        character.CCDIKSolver = null;
-        character.CCDIKSolver = new CCDIKSolver( character.model, character.chains );
+        character.FABRIKSolver = new FABRIKSolver( character.skeleton );
+        character.FABRIKSolver.createChain(ikChain.bones, ikChain.constraints, ikChain.target, ikChain.name);
+
+        character.CCDIKSolver = new CCDIKSolver( character.skeleton );
+        character.CCDIKSolver.createChain(ikChain.bones, ikChain.constraints, ikChain.target, ikChain.name);
+
         
         if(callback)
             callback();
@@ -303,9 +290,8 @@ class App {
         for(let i = 0; i < character.chains.length; i++) {
             if(character.chains[i].name == chainName) {
                 character.chains.splice(i,1);
-                character.fabrikChains.splice(i,1);
                 //remove chain from solvers
-                character.CCDIKSolver.iks.splice(i,1)
+                character.CCDIKSolver.removeChain(chainName);
                 character.FABRIKSolver.removeChain(chainName);
                 //remove bone related to target
                 let b = character.skeleton.bones.indexOf(character.skeleton.getBoneByName("IKTarget"+chainName));
@@ -349,7 +335,6 @@ class App {
                     
                 case "MIX":
                     this.currentModel.FABRIKSolver.update();
-                    
                     this.currentModel.CCDIKSolver.update();
                     break;
             }
@@ -360,18 +345,26 @@ class App {
     }
     
     onKeyDown ( e ){
+        let it = this.currentModel.FABRIKSolver.iterations;
+
         switch( e.key ){
-            case 'a': this.currentModel.FABRIKSolver.constraintsEnabler = !this.currentModel.FABRIKSolver.constraintsEnabler; break; 
-            case '1': this.currentModel.FABRIKSolver.iterations = 1; break;
-            case '2': this.currentModel.FABRIKSolver.iterations = 2; break;
-            case '3': this.currentModel.FABRIKSolver.iterations = 3; break;
-            case '4': this.currentModel.FABRIKSolver.iterations = 4; break;
-            case '5': this.currentModel.FABRIKSolver.iterations = 5; break;
-            case '6': this.currentModel.FABRIKSolver.iterations = 6; break;
-            case '7': this.currentModel.FABRIKSolver.iterations = 10; break;
-            case '8': this.currentModel.FABRIKSolver.iterations = 20; break;
-            case '9': this.currentModel.FABRIKSolver.iterations = 30; break;
+            case 'a': 
+            this.currentModel.FABRIKSolver.constraintsEnabler = !this.currentModel.FABRIKSolver.constraintsEnabler; 
+            this.currentModel.CCDIKSolver.constraintsEnabler = !this.currentModel.CCDIKSolver.constraintsEnabler; 
+            break; 
+            case '1': it = 1; break;
+            case '2': it = 2; break;
+            case '3': it = 3; break;
+            case '4': it = 4; break;
+            case '5': it = 5; break;
+            case '6': it = 6; break;
+            case '7': it = 10; break;
+            case '8': it = 20; break;
+            case '9': it = 30; break;
         }
+
+        this.currentModel.FABRIKSolver.setIterations( it );
+        this.currentModel.CCDIKSolver.setIterations( it );
     }
 
     onWindowResize() {
@@ -390,7 +383,6 @@ class Character {
         this.url = url;
         this.model = null;
         this.chains = [];
-        this.fabrikChains = [];
         this.skeleton = null;
         this.skeletonHelper = null;
         this.FABRIKSolver = null;

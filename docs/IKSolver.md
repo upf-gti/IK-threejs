@@ -1,7 +1,9 @@
-# FABRIKSolver - ThreeJs
-A solver for IK with FABRIK Algorithm for ThreeJs
+# IKSolver - ThreeJs
+Inverse Kinematics Solvers implemented with FABRIK and CCD Algorithms for ThreeJs
+
 
 ```javascript
+import { FABRIKSolver, CCDIKSolver } from "IKSolver.js"
 let scene = new THREE.Scene();
 // ... scene setup ...
 
@@ -14,6 +16,8 @@ target.position.set(0,0,1);
 scene.add( target );
 
 let ikSolver = new FABRIKSolver( skeleton );
+//let ikSolver = new CCDIKSolver( skeleton );
+
 ikSolver.setIterations( 1 );
 ikSolver.setSquaredDistanceThreshold( 0.0001 );
 
@@ -49,6 +53,10 @@ ikSolver.update();
 // ... render ...
 
 ```
+# Classes
+There are two algorithms implemented, with their own class. Nonetheless, both use the exact same api and methods
+- class ```FABRIKSolver``` implements the FABRIK solution 
+- class ```CCDIKSolver``` implements the CCD solution 
 
 # Static Members
 
@@ -57,6 +65,11 @@ Enumeration of types
 - OMNI: 0
 - HINGE: 1
 - BALLSOCKET: 2
+
+Can be accessed from both classes as 
+- ```FABRIKSolver.JOINTTYPES``` 
+- ```CCDIKSolver.JOINTTYPES``` 
+
 
 
 # Methods
@@ -111,20 +124,28 @@ Searches for a chain named as name and returns its description.
 Returns an **object** if an existing chain is found, **null** otherwise.
 
 ---
+## setChainEnabler( name, isEnabled )
+
+Enables/Disables a chain.
+
+- name : (string).
+- isEnabled : (boolean)
+
+---
 ## setConstraintToBone( chainName, idxBoneInChain, newConstraint )
 
 Modifies a constraint of a bone in an existing chain.
 
 - chainName : (string) Name of chain to fetch.
 - idxBoneInChain : (int) Index in the chain array (not the actual bone number).
-- newConstraint : (object) Object with all desired attributes for that constraint. See [JOINTTYPES Member](#jointtypes) and [Constraint Types](./Constraing%20Types.md).
+- newConstraint : (object) Object with all desired attributes for that constraint. See [JOINTTYPES Member](#jointtypes) and [Constraint Types](./Constraint%20Types.md).
 
 Returns **true** if successful, **false** otherwise.
 
 ---
 ## update( )
 
-Computes the FABRIK algorithm over all chains.
+Computes the FABRIK or CCD algorithm over all enabled chains.
 
 ---
 

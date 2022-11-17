@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {FABRIKSolver} from './FABRIKSolver.js'
+import {FABRIKSolver} from './IKSolver.js'
 class GUI {
 
     constructor(editor) {
@@ -64,8 +64,6 @@ class GUI {
             //Character Selector
             widgets.addSection("Character", { pretitle: makePretitle('stickman') });
             widgets.addCombo("Model",  this.editor.currentModel.name, { values : this.editor.modelsNames, callback: (v) => {
-                // this.editor.currentModel = v;
-                // this.editor.initCharacter();
                 this.editor.changeCurrentModel(v);
                 this.showSkeleton = true;
                 widgets.refresh();
@@ -79,12 +77,6 @@ class GUI {
             //Solver Selector
             widgets.addSection("Solver", { pretitle: makePretitle('gizmo') });
             widgets.addCombo("Solver",  this.editor.solver, { values : this.editor.solvers, callback: (v) => {
-                // if(v == "MIX") {
-                //     this.editor.initFabrik(false);
-                // }
-                // else if(v == "FABRIK") {
-                //     this.editor.initFabrik(true);
-                // }
                 this.editor.solver = v;
                 widgets.refresh();
             }});
@@ -92,170 +84,54 @@ class GUI {
             //Chains
              widgets.addSection("Chains", {});
             
-            /*----------------------------------------------- CCDIK Inspector -----------------------------------------------*/
-            if(this.editor.solver == "CCDIK") {
-                let chains = this.editor.currentModel.CCDIKSolver.iks;
-                for(let i = 0; i < chains.length; i++){
-                    widgets.addTitle(chains[i].name, {width:'50%'});
-                    
-                    let bones = this.editor.currentModel.skeleton.bones;
-                    for(let j = 0; j < chains[i].links.length; j++){
-                        widgets.addInfo("Bone", bones[chains[i].links[j].index].name);
-                        widgets.widgets_per_row = 3;
-                        widgets.addCheckbox("limitX", chains[i].links[j].limitX, {width: '100%', callback: (v) => { 
-                                if(!v){ 
-                                    chains[i].links[j].rotationMin.x = -2*Math.PI
-                                    chains[i].links[j].rotationMax.x = 2*Math.PI
-                                }
-                        }});
-                        widgets.addCheckbox("limitY", chains[i].links[j].limitY, {width: '100%', callback: (v) => { 
-                            if(!v){ 
-                                chains[i].links[j].rotationMin.y = -2*Math.PI
-                                chains[i].links[j].rotationMax.y = 2*Math.PI
-                            }}
-                        });
-                        widgets.addCheckbox("limitZ", chains[i].links[j].limitZ, {width: '100%', callback: (v) => { 
-                            if(!v){ 
-                                chains[i].links[j].rotationMin.z = -2*Math.PI
-                                chains[i].links[j].rotationMax.z = 2*Math.PI
-                            }}
-                        });
-                        widgets.widgets_per_row = 1;
-                        if(chains[i].links[j].rotationMin) {
-                            let rotMin =  [chains[i].links[j].rotationMin.x, chains[i].links[j].rotationMin.y, chains[i].links[j].rotationMin.z];
-                            widgets.addVector3("Rotation min", rotMin, {min: -2*Math.PI, max: 2*Math.PI, callback:
-                                value => {
-                                    let v = chains[i].links[j];
-                                    if(v.limitX) {
-                                        chains[i].links[j].rotationMin.x = value[0];
-                                        // this.editor.CCDIKSolver.iks[i].links[j].rotationMin.x = value[0];
-                                    }
-                                    if(v.limitY) {
-                                        chains[i].links[j].rotationMin.y = value[1];
-                                        // this.editor.CCDIKSolver.iks[i].links[j].rotationMin.y = value[1];
-                                    }
-                                    if(v.limitZ) {
-                                        chains[i].links[j].rotationMin.z = value[2];
-                                        // this.editor.CCDIKSolver.iks[i].links[j].rotationMin.z = value[2];
-                                    }
-                                }
-                            }); 
-                        }
-                        else{
-                            widgets.addButton(null, "Add minimum rotation", {callback: v => {
+            /*----------------------------------------------- IK Solver Inspector -----------------------------------------------*/
+            let chains = this.editor.currentModel.chains;
+            for(let i = 0; i < chains.length; i++){
+                widgets.addTitle(chains[i].name, {});
+                
+                let bones = this.editor.currentModel.skeleton.bones;
+                for(let j = chains[i].bones.length - 1; j >= 0; j--){
+                    widgets.addInfo("Bone", bones[chains[i].bones[j]].name);
+                    widgets.widgets_per_row = 1;
+                    let constraint = chains[i].constraints[j];
+                    if(constraint) {
+                        let types = Object.keys(FABRIKSolver.JOINTTYPES);
+                        widgets.addString("Constraint type", types[constraint.type], {disabled: true});
 
-                                chains[i].links[j].rotationMin = new THREE.Vector3(-2*Math.PI,   -2*Math.PI,   -2*Math.PI );
-                                // this.editor.CCDIKSolver.iks[i].links[j].rotationMin = new THREE.Vector3(-2*Math.PI,   -2*Math.PI,   -2*Math.PI );
-                                widgets.refresh();
-                            }})
+                        for(let c in constraint) {
+                            if(c == "type") 
+                                continue;
+                            widgets.addDefault(c, constraint[c], v=>{
+                                if ( v.length > 0 ){
+                                    for ( let k = 0; k < v.length; ++k ){ constraint[c][k] = v[k]; }
+                                }else{ constraint[c] = v; }
+                                this.editor.currentModel.FABRIKSolver.setConstraintToBone( chains[i].name, j, constraint ); 
+                                this.editor.currentModel.CCDIKSolver.setConstraintToBone( chains[i].name, j, constraint ); 
+                            });
+                            chains[i].constraints[j] = constraint;
                         }
-                        if(chains[i].links[j].rotationMax)
-                        {                   
-                            let rotMax =  [chains[i].links[j].rotationMax.x, chains[i].links[j].rotationMax.y, chains[i].links[j].rotationMax.z];
-                            widgets.addVector3("Rotation max", chains[i].links[j].rotationMax, {min: -2*Math.PI, max: 2*Math.PI, callback:
-                                value => {
-                                    let v = chains[i].links[j];
-                                    if(v.limitX){
-                                        chains[i].links[j].rotationMax.x = value[0];
-                                        // this.editor.CCDIKSolver.iks[i].links[j].rotationMax.x = value[0];
-                                    }
-                                    if(v.limitY) {
-                                        chains[i].links[j].rotationMax.y = value[1];
-                                        // this.editor.CCDIKSolver.iks[i].links[j].rotationMax.y = value[1];
-                                    }
-                                    if(v.limitZ) {
-                                        chains[i].links[j].rotationMax.z = value[2];                
-                                        // this.editor.CCDIKSolver.iks[i].links[j].rotationMax.z = value[2];                
-                                    }
-                                }
-                            }); 
-                            widgets.addSeparator();    
-                        }
-                        else {
-                            widgets.addButton(null, "Add maximum rotation", {callback: v => {
+                        widgets.addButton(null, "Remove constraint", { callback: v => {
 
-                                chains[i].links[j].rotationMax = new THREE.Vector3(2*Math.PI,   2*Math.PI,   2*Math.PI );
-                                // this.editor.CCDIKSolver.iks[i].links[j].rotationMax = new THREE.Vector3(2*Math.PI,   2*Math.PI,   2*Math.PI );
-                                widgets.refresh();
-                            }})
-                        }
-
-                        if(chains[i].links[j].limitation){
-                            let axis = chains[i].links[j].limitation;
-                            widgets.addVector3("Rotation axis", [axis.x, axis.y, axis.z], {callback: v => {
-                                chains[i].links[j].limitation.x = v[0];
-                                chains[i].links[j].limitation.y = v[1];
-                                chains[i].links[j].limitation.z = v[2];   
-                                
-                                // this.editor.CCDIKSolver.iks[i].links[j].limitation.x = v[0];
-                                // this.editor.CCDIKSolver.iks[i].links[j].limitation.y = v[1];
-                                // this.editor.CCDIKSolver.iks[i].links[j].limitation.z = v[2];   
-                            }})
-                        }
-                        else {
-                            widgets.addButton(null, "Add rotation axis", {callback: v => {
-
-                                chains[i].links[j].limitation = new THREE.Vector3(1,0,0);
-                                this.editor.currentModel.CCDIKSolver.iks[i].links[j].limitation = new THREE.Vector3(1,0,0);
-                                widgets.refresh();
-                            }})
-                        }
+                            this.editor.currentModel.FABRIKSolver.setConstraintToBone( chains[i].name, j, null );
+                            this.editor.currentModel.CCDIKSolver.setConstraintToBone( chains[i].name, j, null );
+                            chains[i].constraints[j] = null;
+                            widgets.refresh();
+                        }})
+                    }else{
+                        widgets.addButton(null, "Add constraint", { callback: v => {
+                            this.createIKSolverConstraintDialog(i, j, bones[chains[i].bones[j]].name, widgets.refresh.bind(widgets));
+                        }})
                     }
-                    let rBtn = widgets.addButton(null, "Delete chain", { callback: v => {
-                        this.editor.removeChain(this.editor.currentModel,chains[i].name);
-                        widgets.refresh();
-                    }})
-                    rBtn.getElementsByTagName("button")[0].style["background-color"] =  "indianred";
-                    widgets.addSeparator();
+                    widgets.addSeparator();    
                 }
+                let rBtn = widgets.addButton(null, "Delete chain", { callback: v => {
+                    this.editor.removeChain(this.editor.currentModel, chains[i].name);
+                    widgets.refresh();
+                }})
+                rBtn.getElementsByTagName("button")[0].style["background-color"] =  "indianred";
+                widgets.addSeparator();
             }
-            /*----------------------------------------------- FABRIK Inspector -----------------------------------------------*/
-            else if(this.editor.solver == "FABRIK") {
-
-                let fabrikChains = this.editor.currentModel.fabrikChains;//this.editor.currentModel.FABRIKSolver.chains;
-                for(let i = 0; i < fabrikChains.length; i++){
-                    widgets.addTitle(fabrikChains[i].name, {});
-                    
-                    let bones = this.editor.currentModel.skeleton.bones;
-                    for(let j = fabrikChains[i].bones.length - 1; j >= 0; j--){
-                        widgets.addInfo("Bone", bones[fabrikChains[i].bones[j]].name);
-                        widgets.widgets_per_row = 1;
-                        let constraint = fabrikChains[i].constraints[j];
-                        if(constraint) {
-                            let types = Object.keys(FABRIKSolver.JOINTTYPES);
-                            widgets.addString("Constraint type", types[constraint.type], {disabled: true});
-
-                            for(let c in constraint) {
-                                if(c == "type") 
-                                    continue;
-                                widgets.addDefault(c, constraint[c], v=>{
-                                    if ( v.length > 0 ){
-                                        for ( let k = 0; k < v.length; ++k ){ constraint[c][k] = v[k]; }
-                                    }else{ constraint[c] = v; }
-                                    this.editor.currentModel.FABRIKSolver.setConstraintToBone( fabrikChains[i].name, j, constraint ); });
-                                    fabrikChains[i].constraints[j] = constraint;
-                            }
-                            widgets.addButton(null, "Remove constraint", { callback: v => {
-
-                                this.editor.currentModel.FABRIKSolver.setConstraintToBone( fabrikChains[i].name, j, null );
-                                fabrikChains[i].constraints[j] = null;
-                                widgets.refresh();
-                            }})
-                        }else{
-                            widgets.addButton(null, "Add constraint", { callback: v => {
-                                this.createFabrikConstraintDialog(i, j, bones[fabrikChains[i].bones[j]].name, widgets.refresh.bind(widgets));
-                            }})
-                        }
-                        widgets.addSeparator();    
-                    }
-                    let rBtn = widgets.addButton(null, "Delete chain", { callback: v => {
-                        this.editor.removeChain(this.editor.currentModel, fabrikChains[i].name);
-                        widgets.refresh();
-                    }})
-                    rBtn.getElementsByTagName("button")[0].style["background-color"] =  "indianred";
-                    widgets.addSeparator();
-                }
-            }
+        
 
             /** Add new chain */
             widgets.addTitle("New chain");
@@ -325,7 +201,7 @@ class GUI {
         element.scrollTop = options.maxScroll ? maxScroll : (options.scroll ? options.scroll : 0);
     }
 
-    createFabrikConstraintDialog(chainIdx, chainBoneIdx, boneName, callback = null) {
+    createIKSolverConstraintDialog(chainIdx, chainBoneIdx, boneName, callback = null) {
 
         let inspector = new LiteGUI.Inspector();
         inspector.addTitle(boneName);
@@ -389,8 +265,9 @@ class GUI {
                 else {
                     newConstraint = constraint.omni;
                 }
-                this.editor.currentModel.fabrikChains[chainIdx].constraints[chainBoneIdx] = newConstraint;
+                this.editor.currentModel.chains[chainIdx].constraints[chainBoneIdx] = newConstraint;
                 this.editor.currentModel.FABRIKSolver.setConstraintToBone( this.editor.currentModel.FABRIKSolver.chains[chainIdx].name, chainBoneIdx, newConstraint);
+                this.editor.currentModel.CCDIKSolver.setConstraintToBone( this.editor.currentModel.CCDIKSolver.chains[chainIdx].name, chainBoneIdx, newConstraint);
                 dialog.close();
                 if(callback)
                     callback();
