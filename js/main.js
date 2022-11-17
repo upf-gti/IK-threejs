@@ -5,7 +5,7 @@ import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/loa
 import { CCDIKSolver} from 'https://cdn.skypack.dev/three@0.136/examples/jsm/animation/CCDIKSolver.js';
 import { FABRIKSolver } from './FABRIKSolver.js'
 import { GUI } from './gui.js'
-import {Gizmo} from './gizmo.js'
+import { IKHelper } from './IKHelper.js'
 
 class App {
 
@@ -21,7 +21,7 @@ class App {
 
         //Current solver selected 
         this.solvers = ["CCDIK", "FABRIK", "MIX"];
-        this.solver = this.solvers[0];
+        this.solver = this.solvers[1];
         
         // current model selected
         let eva = new Character("Eva", "./data/models/Eva_Y2.glb");
@@ -58,7 +58,7 @@ class App {
         this.controls.target.set(0.0, 1.3, 0);
         this.controls.update();
 
-        this.gizmo = new Gizmo(this);
+        this.ikHelper = new IKHelper(this);
         
         this.renderer.render( this.scene, this.camera );
         
@@ -167,7 +167,7 @@ class App {
 
             this.addChain(character, {name:"Arm", origin: character.bonesIdxs["LeftArm"], endEffector: character.bonesIdxs["LeftHand"]}, null, new THREE.Vector3(1,1,0));
             if(this.currentModel.name == character.name)
-                this.gizmo.begin(character.skeletonHelper)
+                this.ikHelper.begin(character)
 
             if ( callback ){ 
                 callback(character); 
@@ -204,7 +204,7 @@ class App {
         for(let i in this.models) {
             if(this.models[i].name == name) {
                 this.currentModel = this.models[i];
-                this.gizmo.begin(this.models[i].skeletonHelper);
+                this.ikHelper.begin(this.models[i]);
                 this.scene.getObjectByName("Character_"+name).visible = true;
                 this.scene.getObjectByName("SkeletonHelper_"+name).visible = true;
                 break;
@@ -228,7 +228,7 @@ class App {
         }
 
         //Add target to the scene
-        let target = null;
+        let target = this.scene.getObjectByName('IKTarget' + chain.name);
         if(chain.target){
             target = this.scene.getObjectByName(chain.target);
         }
@@ -236,7 +236,8 @@ class App {
 
             if(this['IKTarget'+chain.name] ){
                 target = this['IKTarget'+chain.name] ;
-            }else{
+            }
+            else{
 
                 target  = new THREE.Bone();
                 target.position.copy(targetPos);
@@ -368,7 +369,7 @@ class App {
             }
         }
                 
-        this.gizmo.update(true, et);
+        this.ikHelper.update(true, et);
         this.renderer.render( this.scene, this.camera );
     }
     
