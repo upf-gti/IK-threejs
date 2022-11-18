@@ -9,46 +9,20 @@ class IKHelper {
 
         this.raycastEnabled = true;
 
-        let scene = editor.scene;
-
+        this.editor = editor;
         this.camera = editor.camera;
-        this.scene = scene;
+        this.scene = editor.scene;
 		this.raycaster = null;
         this.selectedBone = null;
         this.selectedChain = null;
         this.bonePoints = null;
 
-        // Update in first iteration
-        this.mustUpdate = true; 
+        this.constraintHelpers = [];
 
-        this.visible = true;
-        // constraint helpers
-        this.omniConstraint = null;
-        this.initConstraintHelpers();
+        this.visible = true;       
         
-    }
-
-    initConstraintHelpers() {
-
-        const material = new THREE.MeshBasicMaterial({
-            depthTest: false,
-            side: THREE.DoubleSide,
-            fog: false,
-            toneMapped: false,
-            transparent: true
-        });
-        material.color.set(0x8ea05f);
-        material.opacity = 0.8;
-
-        // BALL-SOCKET
-        const sphere = new THREE.SphereGeometry( 10, 16, 16);
-        this.ballConstraint = new THREE.Mesh( sphere, material );
-        this.ballConstraint.visible = false;
-
-        // HINGE
-        const circle = new THREE.CircleGeometry( 10, 15);
-        this.hingeConstraint = new THREE.Mesh( circle, material );
-        this.hingeConstraint.visible = false;
+        this.onSelect = null;
+        this.onDeselect = null;
     }
 
     begin(character) {
@@ -95,6 +69,8 @@ class IKHelper {
         this.raycaster = new THREE.Raycaster();
         this.raycaster.params.Points.threshold = 0.05;
         
+        this.initConstraintHelpers();
+
         this.bindEvents();
         
         // First update to get bones in place
@@ -104,6 +80,163 @@ class IKHelper {
             this.updateBoneColors();
     }
 
+    initConstraintHelpers() {
+
+        for( let chain in this.constraintHelpers) {
+            for(let constraint in this.constraintHelpers[chain]) {
+                this.scene.remove(this.constraintHelpers[chain][constraint]);
+                delete this.constraintHelpers[chain][constraint];
+            }
+            delete this.constraintHelpers[chain];
+        }
+        this.constraintHelpers = {};
+
+        let chains = this.character.chains;
+        for(let i in chains) {
+            let chain = chains[i];
+            this.constraintHelpers[chain.name] = {};
+            for(let j = 0; j < chain.constraints.length; j++) {
+                let constraint = chain.constraints[j];
+                if(!constraint)
+                    continue;
+            
+                if(constraint._type == this.character.FABRIKSolver.constructor.JOINTTYPES.HINGE) {
+                    this.addHingeHelper(constraint, chain.bones[j], chain.name);
+                }
+                else if(constraint._type == this.character.FABRIKSolver.constructor.JOINTTYPES.BALLSOCKET) {
+                    this.addBallsocketHelper(constraint, chain.bones[j], chain.name);
+                }
+                else
+                    this.addOmniHelper(constraint, chain.bones[j], chain.name);
+            }
+        }
+    }
+
+    addOmniHelper(constraint, bone, chainName) {
+
+        const material = new THREE.MeshBasicMaterial({
+            depthTest: false,
+            side: THREE.DoubleSide,
+            fog: false,
+            toneMapped: false,
+            transparent: true
+        });
+        material.color.set(0x8ea05f);
+        material.opacity = 0.8;
+
+        let mat = new THREE.Matrix3();
+        mat.fromArray([...constraint._swingUp, ...constraint._swingFront, ...constraint._swingRight]);
+
+        
+        const sphere = new THREE.SphereGeometry( 10, 16, 16);
+        let helper = new THREE.Mesh( sphere, material );
+        helper.visible = false;
+
+        helper.setRotationFromAxisAngle(new THREE.Vector3(0,1,0), Math.PI*0.5);
+        helper.applyMatrix4(new THREE.Matrix4().setFromMatrix3(mat));
+        helper.position.copy(this.skeletonHelper.bones[bone].position);
+        helper.bone = bone;
+
+        this.skeletonHelper.bones[bone].parent.add( helper );
+        if(!this.constraintHelpers[chainName])
+            this.constraintHelpers[chainName] = {};
+        this.constraintHelpers[chainName][bone] = helper;
+    }
+
+    addBallsocketHelper(constraint, bone, chainName) {
+
+        const material = new THREE.MeshBasicMaterial({
+            depthTest: false,
+            side: THREE.DoubleSide,
+            fog: false,
+            toneMapped: false,
+            transparent: true
+        });
+        material.color.set(0xD433FF);
+        material.opacity = 0.8;
+
+        let mat = new THREE.Matrix3();
+        mat.fromArray([...constraint._swingUp, ...constraint._swingFront, ...constraint._swingRight]);
+
+        let polMin = constraint._polar[0];
+        let polMax = constraint._polar[1];
+
+        let aziMin = constraint._azimuth[0];
+        let aziMax = constraint._azimuth[1];
+
+        if(polMin > polMax) { //vertical -- theta
+            polMin -= 2*Math.PI;
+        }
+        polMax = Math.abs(polMax - polMin);
+
+        if(aziMin > aziMax) { //XY horizontal -- phi
+            aziMin -= 2*Math.PI;
+        }
+        aziMax = Math.abs(aziMax - aziMin);
+    
+        const sphere = new THREE.SphereGeometry( 10, 16, 16);
+        let helper = new THREE.Mesh( sphere, material );
+        helper.visible = false;
+
+        helper.setRotationFromAxisAngle(new THREE.Vector3(0,1,0), Math.PI*0.5);
+        helper.applyMatrix4(new THREE.Matrix4().setFromMatrix3(mat));
+        helper.position.copy(this.skeletonHelper.bones[bone].position);
+        helper.bone = bone;
+
+        this.skeletonHelper.bones[bone].parent.add( helper );
+        if(!this.constraintHelpers[chainName])
+        this.constraintHelpers[chainName] = {};
+        this.constraintHelpers[chainName][bone] = helper;
+    }
+
+    addHingeHelper(constraint, bone, chainName) {
+
+        const material = new THREE.MeshBasicMaterial({
+            depthTest: false,
+            side: THREE.DoubleSide,
+            fog: false,
+            toneMapped: false,
+            transparent: true
+        });
+        material.color.set(0x90FF33);
+        material.opacity = 0.8;
+
+        let mat = new THREE.Matrix3();
+        mat.fromArray([...constraint._swingUp, ...constraint._swingFront, ...constraint._swingRight]);
+
+        let min = constraint._limits[0];
+        let max = constraint._limits[1];
+        if(min > max) {
+            min -= 2*Math.PI;
+        }
+        max = Math.abs(max - min);
+        
+        let circle = new THREE.CircleGeometry( 10, 15, min - Math.PI*0.5, max);
+
+        let helper = new THREE.Mesh( circle, material );
+        helper.visible = true;
+        helper.setRotationFromAxisAngle(new THREE.Vector3(1,0,0), -Math.PI*0.5);
+        helper.applyMatrix4(new THREE.Matrix4().setFromMatrix3(mat));
+        helper.position.copy(this.skeletonHelper.bones[bone].position);
+        helper.bone = bone;
+
+        this.skeletonHelper.bones[bone].parent.add( helper );
+        if(!this.constraintHelpers[chainName])
+            this.constraintHelpers[chainName] = {};
+        this.constraintHelpers[chainName][bone] = helper;
+    }
+
+    removeHelper(idx, chainName) {
+        this.constraintHelpers[chainName][idx].removeFromParent();
+        this.scene.remove(this.constraintHelpers[chainName][idx]);
+        delete this.constraintHelpers[chainName][idx];
+    }
+
+    removeChainHelpers(chainName) {
+        for(let idx in this.constraintHelpers[chainName]) {
+            this.removeHelper(idx, chainName);
+        }
+    }
 
     bindEvents() {
 
@@ -131,8 +264,13 @@ class IKHelper {
             const pointer = new THREE.Vector2(( e.offsetX / canvas.clientWidth ) * 2 - 1, -( e.offsetY / canvas.clientHeight ) * 2 + 1);
             this.raycaster.setFromCamera(pointer, this.camera);
             const intersections = this.raycaster.intersectObject( this.bonePoints );
-            if(!intersections.length)
+            if(!intersections.length) {
+                this.selectedBone = null;
+                this.updateBoneColors();
+                if(this.onDeselect)
+                    this.onDeselect();
                 return;
+            }
 
             const intersection = intersections.length > 0 ? intersections[ 0 ] : null;
 
@@ -140,10 +278,12 @@ class IKHelper {
   
                 this.selectedBone = intersection.index;
                 let boneName = this.skeletonHelper.bones[this.selectedBone].name;
+                this.updateBoneColors();
 
-                this.mustUpdate = true;
-                this.onBoneSelected();
+                if(this.onSelect)
+                    this.onSelect(boneName);
             }
+            
         });
     }
 
@@ -151,38 +291,69 @@ class IKHelper {
 
         if(state) this.updateBones(dt);
 
-        if(!this.visible || this.selectedBone == null || !this.mustUpdate)
+        if(!this.visible || this.selectedBone == null || !this.character.selectedChain)
             return;
 
-            
-        let chain = this.character.FABRIKSolver.getChain(this.selectedChain);
+        let chainName = this.character.selectedChain;
+        let chain = this.character.FABRIKSolver.getChain(chainName);
         if(!chain)
             return;
 
-        let idx = chain.chain.indexOf(this.selectedBone);
-        let constraint = chain.constraints[idx];
-        if(!constraint)
+        if(this.constraintHelpers[chainName]) {
+            for(let h in this.constraintHelpers[chainName]) {
+                let helper = this.constraintHelpers[chainName][h];
+                let boneIdx = chain.chain.indexOf(helper.bone);
+                let constraint = chain.constraints[boneIdx];
+                let mat = new THREE.Matrix3();
+                mat.fromArray([...constraint._swingUp, ...constraint._swingFront, ...constraint._swingRight]);
+
+                if(constraint._type == this.character.FABRIKSolver.constructor.JOINTTYPES.HINGE) {
+                    let min = constraint._limits[0];
+                    let max = constraint._limits[1];
+                    if(min > max) {
+                        min -= 2*Math.PI;
+                    }
+                    max = Math.abs(max - min);
+                    
+                    helper.geometry = new THREE.CircleGeometry( 10, 15, min - Math.PI*0.5, max)
+                    helper.setRotationFromAxisAngle(new THREE.Vector3(1,0,0), -Math.PI*0.5);
+                }
+                else if(constraint._type == this.character.FABRIKSolver.constructor.JOINTTYPES.BALLSOCKET) { 
+                    let polMin = constraint._polar[0];
+                    let polMax = constraint._polar[1];
+
+                    let aziMin = constraint._azimuth[0];
+                    let aziMax = constraint._azimuth[1];
+
+                    if(polMin > polMax) { //vertical -- theta
+                        polMin -= 2*Math.PI;
+                    }
+                    polMax = Math.abs(polMax - polMin);
+
+                    if(aziMin > aziMax) { //XY horizontal -- phi
+                        aziMin -= 2*Math.PI;
+                    }
+                    aziMax = Math.abs(aziMax - aziMin);
+                    
+                    helper.geometry = new THREE.SphereGeometry( 10, 15, 15, aziMin, aziMax, polMin , polMax);
+                    helper.setRotationFromAxisAngle(new THREE.Vector3(0,1,0), Math.PI*0.5);
+                }
+                helper.applyMatrix4(new THREE.Matrix4().setFromMatrix3(mat));
+                helper.position.copy(this.skeletonHelper.bones[helper.bone].position);
+                helper.visible = true;
+            }
+        }
+        if(!this.updateHelpers)
             return;
-            
-        let mat = new THREE.Matrix3();
-        mat.fromArray([...constraint._swingUp, ...constraint._swingFront, ...constraint._swingRight]);
-        
-        if(this.hingeConstraint.visible) {
-
-            this.hingeConstraint.setRotationFromAxisAngle(new THREE.Vector3(1,0,0), -Math.PI*0.5);
-
-            this.hingeConstraint.applyMatrix4(new THREE.Matrix4().setFromMatrix3(mat));
-            this.hingeConstraint.position.copy(this.skeletonHelper.bones[this.selectedBone].position);
+        this.updateHelpers = false;
+        for(let c in this.constraintHelpers) {
+            if(c == chainName)
+                continue;
+            for(let h in this.constraintHelpers[c]) {
+                this.constraintHelpers[c][h].visible = false;
+            }
 
         }
-        if(this.ballConstraint.visible) {
-
-            this.ballConstraint.setRotationFromAxisAngle(new THREE.Vector3(0,1,0), Math.PI*0.5);
-
-            this.ballConstraint.applyMatrix4(new THREE.Matrix4().setFromMatrix3(mat));
-            this.ballConstraint.position.copy(this.skeletonHelper.bones[this.selectedBone].position);
-        }
-        // this.mustUpdate = false; 
     }
 
     updateBones( dt ) {
@@ -202,81 +373,19 @@ class IKHelper {
         this.bonePoints.geometry.computeBoundingSphere();
     }
 
-    onBoneSelected() {
-        this.updateBoneColors();
-        this.hingeConstraint.visible = false;
-        this.ballConstraint.visible = false;
-
-        for(let i = 0; i < this.character.FABRIKSolver.chains.length; i++) {
-            let boneIdx = this.character.FABRIKSolver.chains[i].chain.indexOf(this.selectedBone);
-            if(boneIdx < 0)
-                continue;
-            
-            let constraint = this.character.FABRIKSolver.chains[i].constraints[boneIdx];
-            if(!constraint)
-                continue;
-           
-            if(constraint._type == this.character.FABRIKSolver.constructor.JOINTTYPES.HINGE)
-                this.updateHingeHelper(constraint);
-            else if(constraint._type == this.character.FABRIKSolver.constructor.JOINTTYPES.BALLSOCKET)
-                this.updateBallHelper(constraint);
+    addConstraintToChain(constraint, bone, chainName) {
+    
+        if(constraint._type == this.character.FABRIKSolver.constructor.JOINTTYPES.HINGE) {
+            this.addHingeHelper(constraint, bone, chainName)
+        }
+        else if(constraint._type == this.character.FABRIKSolver.constructor.JOINTTYPES.BALLSOCKET) {
+            this.addBallsocketHelper(constraint, bone, chainName)
+        }
+        else {
+            this.addOmniHelper(constraint, bone, chainName)
         }
     }
     
-    updateHingeHelper(constraint) {
-        let mat = new THREE.Matrix3();
-        mat.fromArray([...constraint._swingUp, ...constraint._swingFront, ...constraint._swingRight]);
-
-        let min = constraint._limits[0];
-        let max = constraint._limits[1];
-        if(min > max) {
-            min -= 2*Math.PI;
-        }
-        max = Math.abs(max - min);
-        
-        this.hingeConstraint.visible = true;
-        this.hingeConstraint.geometry = new THREE.CircleGeometry( 10, 15, min - Math.PI*0.5, max);
-        this.hingeConstraint.setRotationFromAxisAngle(new THREE.Vector3(1,0,0), -Math.PI*0.5);
-        this.hingeConstraint.applyMatrix4(new THREE.Matrix4().setFromMatrix3(mat));
-        this.hingeConstraint.position.copy(this.skeletonHelper.bones[this.selectedBone].position);
-        
-        this.scene.remove(this.hingeConstraint);
-        this.skeletonHelper.bones[this.selectedBone].parent.add( this.hingeConstraint );
-    }
-
-    updateBallHelper(constraint) {
-        let mat = new THREE.Matrix3();
-        mat.fromArray([...constraint._swingUp, ...constraint._swingFront, ...constraint._swingRight]);
-
-        let polMin = constraint._polar[0];
-        let polMax = constraint._polar[1];
-
-        let aziMin = constraint._azimuth[0];
-        let aziMax = constraint._azimuth[1];
-
-        if(polMin > polMax) { //vertical -- theta
-            polMin -= 2*Math.PI;
-        }
-        polMax = Math.abs(polMax - polMin);
-
-        if(aziMin > aziMax) { //XY horizontal -- phi
-            aziMin -= 2*Math.PI;
-        }
-        aziMax = Math.abs(aziMax - aziMin);
-        
-        this.ballConstraint.visible = true;
-        this.ballConstraint.geometry = new THREE.SphereGeometry( 10, 15, 15, aziMin, aziMax, polMin , polMax);
-
-        this.ballConstraint.setRotationFromAxisAngle(new THREE.Vector3(0,1,0), Math.PI*0.5);
-        this.ballConstraint.applyMatrix4(new THREE.Matrix4().setFromMatrix3(mat));
-        this.ballConstraint.position.copy(this.skeletonHelper.bones[this.selectedBone].position);
-        
-        this.scene.remove(this.ballConstraint);
-        this.skeletonHelper.bones[this.selectedBone].parent.add( this.ballConstraint );
-        this.scene.remove(this.ballConstraint);
-        this.skeletonHelper.bones[this.selectedBone].parent.add( this.ballConstraint );
-    }
-
     /**update bone colors depending on the selected bone */
     updateBoneColors() {
         const geometry = this.bonePoints.geometry;
@@ -308,21 +417,18 @@ class IKHelper {
         }
     }
 
-    onGUI() {
-
-        this.updateBones();
-        this.updateTracks();
-    }
-
     /** change visibility of the helper */
     setVisibility(v) {
         this.visible = v;
         this.skeletonHelper.visible = v;
         this.bonePoints.visible = v;
-        this.ballConstraint.visible = v;
-        this.hingeConstraint.visible = v;
-    }
-    
+        for( let c in this.constraintHelpers) {
+            let chain = this.constraintHelpers[c];
+            for(let h in chain) {
+                chain[h].visible = v;
+            }
+        }
+    }   
 };
 
 const ShaderChunk = {

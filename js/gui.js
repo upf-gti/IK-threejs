@@ -6,6 +6,7 @@ class GUI {
        
         this.editor = editor;
         this.boneProperties = {};
+        this.textInfo = document.getElementById("info");
         this.create();
     }
     create() {
@@ -17,7 +18,6 @@ class GUI {
         LiteGUI.add( this.mainArea );
         
         this.mainArea.onresize = window.onresize;
-       
         
         this.createSidePanel()
        
@@ -38,7 +38,10 @@ class GUI {
     }
 
     updateSidePanel(root = this.sidePanel, options = {}) {
-
+        if(!this.editor.currentModel.selectedChain) {
+            let c = Object.keys(this.editor.currentModel.chains);
+            this.editor.setSelectedChain(c[0]);
+        }
         let newChain = {
             name: "",
             origin: null,
@@ -75,17 +78,22 @@ class GUI {
 
             //Chains
             widgets.addSection("Chains", {});
-            
             /*----------------------------------------------- IK Solver Inspector -----------------------------------------------*/
             let chains = this.editor.currentModel.chains;
-            for(let i = 0; i < chains.length; i++){
-                widgets.addTitle(chains[i].name, {});
+            let names = Object.keys(chains);
+            widgets.addCombo("Current chain", this.editor.currentModel.selectedChain, {values: names, callback: v => {
+                this.editor.setSelectedChain(v);
+                widgets.refresh();
+            }})
+            // for(let i in chains){
+                let chain = chains[this.editor.currentModel.selectedChain];
+                widgets.addTitle(chain.name, {});
                 
                 let bones = this.editor.currentModel.skeleton.bones;
-                for(let j = chains[i].bones.length - 1; j >= 0; j--){
-                    widgets.addInfo("Bone", bones[chains[i].bones[j]].name);
+                for(let j = chain.bones.length - 1; j >= 0; j--){
+                    widgets.addInfo("Bone", bones[chain.bones[j]].name);
                     widgets.widgets_per_row = 1;
-                    let constraint = chains[i].constraints[j];
+                    let constraint = chain.constraints[j];
                     if(constraint) {
                         let types = Object.keys(FABRIKSolver.JOINTTYPES);
                         widgets.addString("Constraint type", types[constraint.type], {disabled: true});
@@ -97,11 +105,10 @@ class GUI {
                             else if(c == 'min' || c == 'max') {
                                 widgets.addNumber(c, constraint[c]*180/Math.PI, {min: -360, max : 360, callback: v => {
                                     constraint[c] = v*Math.PI/180;
-                                    this.editor.currentModel.FABRIKSolver.setConstraintToBone( chains[i].name, j, constraint ); 
-                                    this.editor.currentModel.CCDIKSolver.setConstraintToBone( chains[i].name, j, constraint ); 
-                                    this.editor.ikHelper.onBoneSelected();
+                                    this.editor.updateConstraint( chain.name, j, constraint );
+
                                 }});
-                                chains[i].constraints[j] = constraint;
+                                chain.constraints[j] = constraint;
                                 continue;
                             }
                             else if(c == 'twist' || c == 'polar' || c == 'azimuth') {
@@ -109,11 +116,10 @@ class GUI {
                                 widgets.addVector2(c, values, {min: c == 'polar' ? 0 : -360, max: c == 'polar' ? 180 : 360, callback: v => {
                                     constraint[c][0] = v[0]*Math.PI/180;
                                     constraint[c][1] = v[1]*Math.PI/180;
-                                    this.editor.currentModel.FABRIKSolver.setConstraintToBone( chains[i].name, j, constraint ); 
-                                    this.editor.currentModel.CCDIKSolver.setConstraintToBone( chains[i].name, j, constraint ); 
-                                    this.editor.ikHelper.onBoneSelected();
+                                    this.editor.updateConstraint( chain.name, j, constraint );
+
                                 }});
-                                chains[i].constraints[j] = constraint;
+                                chain.constraints[j] = constraint;
                                 continue;
                             }
                             widgets.addDefault(c, constraint[c], v=>{
@@ -123,35 +129,35 @@ class GUI {
                                 { 
                                     constraint[c] = v; 
                                 }
-                                this.editor.currentModel.FABRIKSolver.setConstraintToBone( chains[i].name, j, constraint ); 
-                                this.editor.currentModel.CCDIKSolver.setConstraintToBone( chains[i].name, j, constraint ); 
-                                this.editor.ikHelper.onBoneSelected();
+                                this.editor.updateConstraint( chain.name, j, constraint );
                             });
-                            chains[i].constraints[j] = constraint;
+                            chain.constraints[j] = constraint;
                         }
                         widgets.addButton(null, "Remove constraint", { callback: v => {
 
-                            this.editor.currentModel.FABRIKSolver.setConstraintToBone( chains[i].name, j, null );
-                            this.editor.currentModel.CCDIKSolver.setConstraintToBone( chains[i].name, j, null );
-                            chains[i].constraints[j] = null;
-                            this.editor.ikHelper.onBoneSelected();
+                            this.editor.updateConstraint( chain.name, j, null );
+                            
+                            chain.constraints[j] = null;
+                            
                             widgets.refresh();
                         }})
                     }else{
-                        widgets.addButton(null, "Add constraint", { callback: v => {
-                            this.createIKSolverConstraintDialog(i, j, bones[chains[i].bones[j]].name, widgets.refresh.bind(widgets));
-                        }})
+                        if(j > 0){
+                            widgets.addButton(null, "Add constraint", { callback: v => {
+                                this.createConstraintDialog(chain.name, j, bones[chain.bones[j]].name, widgets.refresh.bind(widgets));
+                            }})
+                        }
                     }
                     widgets.addSeparator();    
 
                 }
                 let rBtn = widgets.addButton(null, "Delete chain", { callback: v => {
-                    this.editor.removeChain(this.editor.currentModel, chains[i].name);
+                    this.editor.removeChain(chain.name);
                     widgets.refresh();
                 }})
                 rBtn.getElementsByTagName("button")[0].style["background-color"] =  "indianred";
                 widgets.addSeparator();
-            }
+            // }
         
 
             /** Add new chain */
@@ -164,7 +170,7 @@ class GUI {
             widgets.widgets_per_row = 2;
             
             //Select origin bone
-            let origin = newChain.origin == null? null: this.editor.currentModel.skeleton.bones[newChain.origin].name
+            let origin = newChain.origin == null ? null: this.editor.currentModel.skeleton.bones[newChain.origin].name
             widgets.addString("Origin bone", origin, { width: '80%', disabled: true})
             widgets.addButton(null, "+", {title: "From selected", width: '10%', micro: true, callback: v => {
                 newChain.origin = this.editor.ikHelper.selectedBone;
@@ -198,7 +204,7 @@ class GUI {
                 widgets.widgets_per_row = 2;
                 widgets.addString("Target", newChain.target == true ? null : newChain.target, {  width: '80%', disabled: true});
                 widgets.addButton(null, "+", {title: "From selected", width: '10%', micro: true, callback: v => {
-                    newChain.target = this.selectedTarget.children[0].object.name;
+                    newChain.target = this.editor.scene.getObjectByName("control"+this.editor.currentModel.selectedChain).children[0].object.name;
                     widgets.refresh();
                 }});
             }
@@ -216,7 +222,7 @@ class GUI {
                     alert("End effector bone required");
                     return;
                 }
-                this.editor.addChain(this.editor.currentModel, newChain,widgets.refresh.bind(widgets) );
+                this.editor.addChain(this.editor.currentModel, newChain, widgets.refresh.bind(widgets) );
                 
             }})
             btn.getElementsByTagName("button")[0].style["background-color"] =  "cadetblue";
@@ -229,7 +235,7 @@ class GUI {
         element.scrollTop = options.maxScroll ? maxScroll : (options.scroll ? options.scroll : 0);
     }
 
-    createIKSolverConstraintDialog(chainIdx, chainBoneIdx, boneName, callback = null) {
+    createConstraintDialog(chainName, chainBoneIdx, boneName, callback = null) {
 
         let inspector = new LiteGUI.Inspector();
         inspector.addTitle(boneName);
@@ -309,11 +315,10 @@ class GUI {
                 else {
                     newConstraint = constraint.omni;
                 }
-                this.editor.currentModel.chains[chainIdx].constraints[chainBoneIdx] = newConstraint;
-                this.editor.currentModel.FABRIKSolver.setConstraintToBone( this.editor.currentModel.FABRIKSolver.chains[chainIdx].name, chainBoneIdx, newConstraint);
-                this.editor.currentModel.CCDIKSolver.setConstraintToBone( this.editor.currentModel.CCDIKSolver.chains[chainIdx].name, chainBoneIdx, newConstraint);
+                this.editor.currentModel.chains[chainName].constraints[chainBoneIdx] = newConstraint;
+                this.editor.addConstraint(chainName, chainBoneIdx, newConstraint )
+                
                 dialog.close();
-                this.editor.ikHelper.onBoneSelected();
                 if(callback)
                     callback();
             }});
@@ -327,6 +332,9 @@ class GUI {
         dialog.show();
     }
 
+    setTextInfo(text) {
+        this.textInfo.innerText = text;
+    }
 
     resize() {
       

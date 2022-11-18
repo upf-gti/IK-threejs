@@ -5,6 +5,16 @@
         <link  rel="stylesheet" href="./css/litegui.css">
         <style>
             html, body { width:100%; height:100%; margin:0; padding:0; overflow:hidden; }
+            #info {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            text-align: center;
+            z-index: 10000;
+            display: flex;
+            font-size: large;
+            padding: 10px;
+        }
         </style>
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         <script src = "js/libs/litegui.js"></script>
@@ -22,7 +32,7 @@
                 display: flex; justify-content: center; align-items: center; z-index: 100; color: white; font-size: larger;">
 			<p>Loading avatar, please wait</p>
 		</div>
-
+        <div id="info"></div>
         <script src="./js/app.js" type="module"></script>
     </body>
 </html>
