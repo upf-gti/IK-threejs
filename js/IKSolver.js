@@ -319,12 +319,12 @@ class FABRIKSolver extends BaseSolver {
 
                 if ( !chainInfo.enabler ){ continue; }
 
-                // forward - move points to target
                 let currTargetPoint = _vec3;
                 if ( targetObj.getWorldPosition ){ targetObj.getWorldPosition( currTargetPoint ); }
                 else{ currTargetPoint.copy( targetObj.position ); }
                 
 
+                // check if reached
                 _vec3_2.setFromMatrixPosition( bones[ chain[0] ].matrixWorld ); // avoid getWorldPosition, it will force-update every bone worldmatrix
                 if ( currTargetPoint.distanceToSquared( _vec3_2 ) <= this.sqThreshold ){ continue; }
                 
@@ -332,12 +332,13 @@ class FABRIKSolver extends BaseSolver {
                 for (let i = 0; i < chain.length; ++i){
                     positions[ chain[i] ].setFromMatrixPosition( bones[ chain[i] ].matrixWorld );
                 }
-                
+
+                // backward - move joints to target
                 for ( let i = 0; i < chain.length-1; ++i ){
                     let boneIdx = chain[i]; // child
                     let nextBoneIdx = chain[i+1]; // parent
                     // this._boneLengths cannot be used. Bind can be unscaled and real world might be scaled
-                    let boneSize = positions[ boneIdx ].distanceTo( positions[ nextBoneIdx ] ); // computing this makes sense if bones change sizes. Usually they do not. Maybe precompute them
+                    let boneSize = positions[ boneIdx ].distanceTo( positions[ nextBoneIdx ] ); // computing this makes sense if bones change sizes. Usually they do not. Maybe precompute them in world space
 
                     let tp = targetPositions[ boneIdx ];
                     tp.copy( currTargetPoint );
@@ -353,9 +354,9 @@ class FABRIKSolver extends BaseSolver {
                 targetPositions[ chain[chain.length-1] ].copy( currTargetPoint );
 
 
-                // backward - move points back to skeleton
+                // forward - move points back to skeleton
                 currTargetPoint = positions[ chain[ chain.length -1 ] ].clone();
-                for ( let i = chain.length-1; i >= 1; --i ){
+                for ( let i = chain.length-1; i > 0; --i ){
                     let boneIdx = chain[i]; // parent
                     let nextBoneIdx = chain[i-1]; // child
                     // this._boneLengths cannot be used. Bind can be unscaled and real world might be scaled
@@ -383,7 +384,6 @@ class FABRIKSolver extends BaseSolver {
                     let boneIdx = chain[i]; // parent
                     let nextBoneIdx = chain[i-1]; // child
                     
-                    bones[ boneIdx ].updateMatrixWorld(true);
                     let wToL = _mat4;
                     wToL.copy( bones[ boneIdx ].matrixWorld );
                     wToL.invert();
