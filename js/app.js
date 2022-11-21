@@ -204,18 +204,25 @@ class App {
 
     changeCurrentModel(name) {
 
-        this.currentModel.setVsisibility(false);
-
+        this.currentModel.setVisibility(false, this.updateAttachedControls.bind(this));
+   
         for(let i in this.models) {
             if(this.models[i].name == name) {
                 this.currentModel = this.models[i];
                 this.ikHelper.begin(this.models[i]);
-                this.currentModel.setVsisibility(true);
+                this.currentModel.setVisibility(true, this.updateAttachedControls.bind(this));
+                
                 break;
             }
         }
-
-        // TO DO - CHANGE VISIBILITY OF CHAIN TARGETS 
+    }
+    
+    
+    updateAttachedControls(v) {
+        // CHANGE VISIBILITY OF CHAIN TARGETS ATTACHED CONTROLS
+        for(let i in this.currentModel.chains) {
+            this.scene.getObjectByName("control"+i).visible = v;
+        }
     }
 
     initGUI() {
@@ -444,13 +451,16 @@ class Character {
         this.CCDIKSolver = null;
     }
 
-    setVsisibility( v ) {
+    setVisibility( v, callback = null ) {
         this.skeletonHelper.visible = v;
         this.model.visible = v;
 
         for(let i in this.chains) {
-            this.chains[i].target.visible = false;
+            this.chains[i].target.visible = v;
         }
+
+        if(callback)
+            callback(v);
     }
 }
 
