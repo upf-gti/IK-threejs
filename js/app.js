@@ -333,35 +333,49 @@ class App {
 
     removeChain(chainName, callback = null) {
         let character = this.currentModel;
-        for(let name in character.chains) {
-            if(name == chainName) {
-                //remove chain from solvers
-                character.CCDIKSolver.removeChain(chainName);
-                character.FABRIKSolver.removeChain(chainName);
-                //remove target from the scene
-                for(let c in character.chains) {
-                    if(character.chains[c].target.name == character.chains[name].target.name) {
-                        return;
-                    }
-                }
-                //remove bone related to target
-                let b = character.skeleton.bones.indexOf(character.skeleton.getBoneByName("IKTarget"+chainName));
-                character.skeleton.bones.splice(b,1);
-                character.skeleton.boneInverses.splice(b,1) ;
-                character.skeleton.computeBoneTexture();
-                character.skeleton.update();
-                let t = this.scene.getObjectByName("IKTarget"+chainName);
-                this.scene.remove(t);
-                let c = this.scene.getObjectByName("control"+chainName);
-                c.detach(t);
-                this.scene.remove(c);
+        
+        if(!character.chains[chainName]) 
+            return;
 
+        //remove chain from solvers
+        character.CCDIKSolver.removeChain(chainName);
+        character.FABRIKSolver.removeChain(chainName);
+        for(let c in character.chains) {
+            if(character.chains[c].target.name == character.chains[chainName].target.name && c != chainName) {
                 //remove helper
                 this.ikHelper.removeChainHelpers(chainName);
-
-                delete character.chains[name];
+                delete character.chains[chainName];
+                let keys = Object.keys(character.chains);
+                if(keys.length)
+                    this.setSelectedChain(keys[0], character);
+                if(callback)
+                    callback();
+                return;
             }
         }
+        //remove bone related to target
+        let b = character.skeleton.bones.indexOf(character.skeleton.getBoneByName("IKTarget"+chainName));
+        character.skeleton.bones.splice(b,1);
+        character.skeleton.boneInverses.splice(b,1) ;
+        character.skeleton.computeBoneTexture();
+        character.skeleton.update();
+        //remove target from the scene
+        let t = this.scene.getObjectByName("IKTarget"+chainName);
+        this.scene.remove(t);
+        let c = this.scene.getObjectByName("control"+chainName);
+        c.detach(t);
+        this.scene.remove(c);
+
+        //remove helper
+        this.ikHelper.removeChainHelpers(chainName);
+        delete character.chains[chainName];
+        let keys = Object.keys(character.chains);
+        if(keys.length)
+            this.setSelectedChain(keys[0], character);
+
+        if(callback)
+            callback();
+
     }
 
     setSelectedChain(name, character = this.currentModel) {

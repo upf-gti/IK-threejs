@@ -40,7 +40,8 @@ class GUI {
     updateSidePanel(root = this.sidePanel, options = {}) {
         if(!this.editor.currentModel.selectedChain) {
             let c = Object.keys(this.editor.currentModel.chains);
-            this.editor.setSelectedChain(c[0]);
+            if(c.length)
+                this.editor.setSelectedChain(c[0]);
         }
         let newChain = {
             name: "",
@@ -87,78 +88,80 @@ class GUI {
             }})
             // for(let i in chains){
                 let chain = chains[this.editor.currentModel.selectedChain];
-                widgets.addTitle(chain.name, {});
-                
-                let bones = this.editor.currentModel.skeleton.bones;
-                for(let j = chain.bones.length - 1; j >= 0; j--){
-                    widgets.addInfo("Bone", bones[chain.bones[j]].name);
-                    widgets.widgets_per_row = 1;
-                    let constraint = chain.constraints[j];
-                    if(constraint) {
-                        let types = Object.keys(FABRIKSolver.JOINTTYPES);
-                        widgets.addString("Constraint type", types[constraint.type], {disabled: true});
+                if(chain) {
+                        
+                    widgets.addTitle(chain.name, {});
+                    
+                    let bones = this.editor.currentModel.skeleton.bones;
+                    for(let j = chain.bones.length - 1; j >= 0; j--){
+                        widgets.addInfo("Bone", bones[chain.bones[j]].name);
+                        widgets.widgets_per_row = 1;
+                        let constraint = chain.constraints[j];
+                        if(constraint) {
+                            let types = Object.keys(FABRIKSolver.JOINTTYPES);
+                            widgets.addString("Constraint type", types[constraint.type], {disabled: true});
 
-                        for(let c in constraint) {
-                            
-                            if(c == "type") 
-                                continue;
-                            else if(c == 'min' || c == 'max') {
-                                widgets.addNumber(c, constraint[c]*180/Math.PI, {min: -360, max : 360, callback: v => {
-                                    constraint[c] = v*Math.PI/180;
-                                    this.editor.updateConstraint( chain.name, j, constraint );
+                            for(let c in constraint) {
+                                
+                                if(c == "type") 
+                                    continue;
+                                else if(c == 'min' || c == 'max') {
+                                    widgets.addNumber(c, constraint[c]*180/Math.PI, {min: -360, max : 360, callback: v => {
+                                        constraint[c] = v*Math.PI/180;
+                                        this.editor.updateConstraint( chain.name, j, constraint );
 
-                                }});
-                                chain.constraints[j] = constraint;
-                                continue;
-                            }
-                            else if(c == 'twist' || c == 'polar' || c == 'azimuth') {
-                                let values = [constraint[c][0]*180/Math.PI, constraint[c][1]*180/Math.PI];
-                                widgets.addVector2(c, values, {min: c == 'polar' ? 0 : -360, max: c == 'polar' ? 180 : 360, callback: v => {
-                                    constraint[c][0] = v[0]*Math.PI/180;
-                                    constraint[c][1] = v[1]*Math.PI/180;
-                                    this.editor.updateConstraint( chain.name, j, constraint );
-
-                                }});
-                                chain.constraints[j] = constraint;
-                                continue;
-                            }
-                            widgets.addDefault(c, constraint[c], v=>{
-                                if ( v.length > 0 ){
-                                    for ( let k = 0; k < v.length; ++k ){ constraint[c][k] = v[k]; }
-                                }else
-                                { 
-                                    constraint[c] = v; 
+                                    }});
+                                    chain.constraints[j] = constraint;
+                                    continue;
                                 }
-                                this.editor.updateConstraint( chain.name, j, constraint );
-                            });
-                            chain.constraints[j] = constraint;
-                        }
-                        widgets.addButton(null, "Remove constraint", { callback: v => {
+                                else if(c == 'twist' || c == 'polar' || c == 'azimuth') {
+                                    let values = [constraint[c][0]*180/Math.PI, constraint[c][1]*180/Math.PI];
+                                    widgets.addVector2(c, values, {min: c == 'polar' ? 0 : -360, max: c == 'polar' ? 180 : 360, callback: v => {
+                                        constraint[c][0] = v[0]*Math.PI/180;
+                                        constraint[c][1] = v[1]*Math.PI/180;
+                                        this.editor.updateConstraint( chain.name, j, constraint );
 
-                            this.editor.updateConstraint( chain.name, j, null );
-                            
-                            chain.constraints[j] = null;
-                            
-                            widgets.refresh();
-                        }})
-                    }else{
-                        if(j > 0){
-                            widgets.addButton(null, "Add constraint", { callback: v => {
-                                this.createConstraintDialog(chain.name, j, bones[chain.bones[j]].name, widgets.refresh.bind(widgets));
+                                    }});
+                                    chain.constraints[j] = constraint;
+                                    continue;
+                                }
+                                widgets.addDefault(c, constraint[c], v=>{
+                                    if ( v.length > 0 ){
+                                        for ( let k = 0; k < v.length; ++k ){ constraint[c][k] = v[k]; }
+                                    }else
+                                    { 
+                                        constraint[c] = v; 
+                                    }
+                                    this.editor.updateConstraint( chain.name, j, constraint );
+                                });
+                                chain.constraints[j] = constraint;
+                            }
+                            widgets.addButton(null, "Remove constraint", { callback: v => {
+
+                                this.editor.updateConstraint( chain.name, j, null );
+                                
+                                chain.constraints[j] = null;
+                                
+                                widgets.refresh();
                             }})
+                        }else{
+                            if(j > 0){
+                                widgets.addButton(null, "Add constraint", { callback: v => {
+                                    this.createConstraintDialog(chain.name, j, bones[chain.bones[j]].name, widgets.refresh.bind(widgets));
+                                }})
+                            }
                         }
-                    }
-                    widgets.addSeparator();    
+                        widgets.addSeparator();    
 
+                    }
+                    let rBtn = widgets.addButton(null, "Delete chain", { callback: v => {
+                        this.editor.removeChain(chain.name);
+                        widgets.refresh();
+                    }})
+                    rBtn.getElementsByTagName("button")[0].style["background-color"] =  "indianred";
+                    widgets.addSeparator();
                 }
-                let rBtn = widgets.addButton(null, "Delete chain", { callback: v => {
-                    this.editor.removeChain(chain.name);
-                    widgets.refresh();
-                }})
-                rBtn.getElementsByTagName("button")[0].style["background-color"] =  "indianred";
-                widgets.addSeparator();
-            // }
-        
+            
 
             /** Add new chain */
             widgets.addTitle("New chain");
