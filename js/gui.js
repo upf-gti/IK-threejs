@@ -240,6 +240,10 @@ class GUI {
 
     createConstraintDialog(chainName, chainBoneIdx, boneName, callback = null) {
 
+        let d = document.getElementById("dialog");
+        if(d)
+            d.parentElement.removeChild(d);
+
         let inspector = new LiteGUI.Inspector();
         inspector.addTitle(boneName);
         let types = Object.keys(FABRIKSolver.JOINTTYPES);
@@ -330,7 +334,7 @@ class GUI {
             }});
         }
         inspector.on_refresh();
-        let dialog = new LiteGUI.Dialog({title: "Bone constraints", close: true, draggable: true});
+        let dialog = new LiteGUI.Dialog({id: "dialog", title: boneName +" constraints", close: true, draggable: true});
         dialog.add(inspector);
         dialog.show();
     }
