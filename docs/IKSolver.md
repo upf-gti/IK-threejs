@@ -132,6 +132,13 @@ Enables/Disables a chain.
 - isEnabled : (boolean)
 
 ---
+## setChainEnablerAll( isEnabled )
+
+Enables/Disables a all chains at once.
+
+- isEnabled : (boolean)
+
+---
 ## setConstraintToBone( chainName, idxBoneInChain, newConstraint )
 
 Modifies a constraint of a bone in an existing chain.

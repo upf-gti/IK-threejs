@@ -197,9 +197,25 @@ class BaseSolver {
         return null;
     }
 
+    /**
+     * Enables/Disables a chain
+     * @param {string} name 
+     * @param {boolean} isEnabled 
+     */
     setChainEnabler( name, isEnabled ){
         let chain = this.getChain( name );
         if ( chain ){ chain.enabler = !!isEnabled; }
+    }
+
+    /**
+     * Enables/Disables all chains at once
+     * @param {boolean} isEnabled 
+     */
+    setChainEnablerAll( isEnabled ){
+        isEnabled = !!isEnabled;
+        for ( let i = 0; i < this.chains.length; ++i ){
+            this.chains[ i ].enabler = isEnabled;
+        }
     }
 
     /**
@@ -251,13 +267,13 @@ class BaseSolver {
 
     /**
      * Applies rotation restrictions on the specified bone. Bone 0 (effector) is not accepted as no restrictions should be applied to it
-     * @param {int} chainIdx 
+     * @param {object} chainInfo 
      * @param {int > 0} chainBoneIndex 
      * @returns 
      */
-    _applyConstraint ( chainIdx, chainBoneIndex = 1 ){
-        let chain = this.chains[ chainIdx ].chain;
-        let chainConstraints = this.chains[ chainIdx ].constraints;
+    _applyConstraint ( chainInfo, chainBoneIndex = 1 ){
+        let chain = chainInfo.chain;
+        let chainConstraints = chainInfo.constraints;
         if ( !chainConstraints ){ return; }
         let constraint = chainConstraints[ chainBoneIndex ];
         if ( !constraint ){ return; }
@@ -297,10 +313,11 @@ class FABRIKSolver extends BaseSolver {
         for( let it = 0; it < this.iterations; ++it ){
 
             for ( let chainIdx = 0; chainIdx < this.chains.length; ++chainIdx ){
-                let chain = this.chains[ chainIdx ].chain;
-                let targetObj = this.chains[chainIdx].target;
+                let chainInfo = this.chains[ chainIdx ]; 
+                let chain = chainInfo.chain;
+                let targetObj = chainInfo.target;
 
-                if ( !this.chains[ chainIdx ].enabler ){ continue; }
+                if ( !chainInfo.enabler ){ continue; }
 
                 // forward - move points to target
                 let currTargetPoint = _vec3;
@@ -312,8 +329,8 @@ class FABRIKSolver extends BaseSolver {
                 if ( currTargetPoint.distanceToSquared( _vec3_2 ) <= this.sqThreshold ){ continue; }
                 
                 // current pose world positions
-                for (let i = 0; i < positions.length; ++i){
-                    positions[i].setFromMatrixPosition( bones[i].matrixWorld );
+                for (let i = 0; i < chain.length; ++i){
+                    positions[ chain[i] ].setFromMatrixPosition( bones[ chain[i] ].matrixWorld );
                 }
                 
                 for ( let i = 0; i < chain.length-1; ++i ){
@@ -385,7 +402,7 @@ class FABRIKSolver extends BaseSolver {
                     newVec.normalize();
                     
                     let angle = oldVec.angleTo( newVec );
-                    if ( angle > -0.001 && angle < 0.001 ){ continue; }// no additional rotation required
+                    if ( angle > -0.00001 && angle < 0.00001 ){ continue; }// no additional rotation required
                     axis.crossVectors( oldVec, newVec );
                     axis.normalize();
 
@@ -395,7 +412,7 @@ class FABRIKSolver extends BaseSolver {
                     bones[ boneIdx ].quaternion.premultiply( quat ); 
                     
                     if( this.constraintsEnabler )
-                        this._applyConstraint( chainIdx, i );
+                        this._applyConstraint( chainInfo, i );
 
                     bones[ boneIdx ].updateMatrixWorld(true);
                 
@@ -416,10 +433,11 @@ class CCDIKSolver extends BaseSolver {
         for( let it = 0; it < this.iterations; ++it ){
 
             for ( let chainIdx = 0; chainIdx < this.chains.length; ++chainIdx ){
-                let chain = this.chains[ chainIdx ].chain;
-                let targetObj = this.chains[chainIdx].target;
+                let chainInfo = this.chains[ chainIdx ];
+                let chain = chainInfo.chain;
+                let targetObj = chainInfo.target;
 
-                if ( !this.chains[ chainIdx ].enabler ){ continue; }
+                if ( ! chainInfo.enabler ){ continue; }
 
                 // world positions
                 let targetWorld = _vec3;
@@ -473,7 +491,7 @@ class CCDIKSolver extends BaseSolver {
 
                     // constriants if any
                     if( this.constraintsEnabler )
-                        this._applyConstraint( chainIdx, i );
+                        this._applyConstraint( chainInfo, i );
 
                     bones[ boneIdx ].updateMatrixWorld(true);
 
