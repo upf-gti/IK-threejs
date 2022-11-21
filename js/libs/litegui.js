@@ -1831,13 +1831,13 @@ function ContextMenu( values, options )
 	//this prevents the default context browser menu to open in case this menu was created when pressing right button 
 	root.addEventListener("mouseup", function(e){ 
 		e.preventDefault(); return true; 
-	}, true);
+	}, {passive:true});
 	root.addEventListener("contextmenu", function(e) { 
 		if(e.button != 2) //right button
 			return false;
 		e.preventDefault(); 
 		return false;
-	},true);
+	},{passive:true});
 
 	root.addEventListener("mousedown", function(e){ 
 		if(e.button == 2)
@@ -1845,7 +1845,7 @@ function ContextMenu( values, options )
 			that.close();
 			e.preventDefault(); return true; 
 		}
-	}, true);
+	}, {passive:true});
 
 
 	this.root = root;
@@ -1894,8 +1894,8 @@ function ContextMenu( values, options )
 		return true;
 	}
 
-	root.addEventListener("wheel", on_mouse_wheel, true);
-	root.addEventListener("mousewheel", on_mouse_wheel, true);
+	root.addEventListener("wheel", on_mouse_wheel, {passive:true});
+	root.addEventListener("mousewheel", on_mouse_wheel, {passive:true});
 
 
 	//insert before checking position
@@ -4242,7 +4242,7 @@ LiteGUI.Console = Console;
 				that.removeTab(id);
 				e.preventDefault();
 				e.stopPropagation();
-			},true);
+			},{passive:true});
 		}
 		//WARNING: do not modify element.innerHTML or events will be lost
 
@@ -4727,8 +4727,8 @@ LiteGUI.Console = Console;
 		element.dragger = dragger;
 
 		dragger.addEventListener("mousedown",inner_down);
-		input.addEventListener("wheel",inner_wheel,false);
-		input.addEventListener("mousewheel",inner_wheel,false);
+		input.addEventListener("wheel",inner_wheel,{passive:false});
+		input.addEventListener("mousewheel",inner_wheel,{passive:false});
 
 		var doc_binded = null;
 
@@ -6468,7 +6468,7 @@ LiteGUI.Console = Console;
 		this.root.appendChild( corner );
 
 		footer.addEventListener("mousedown", inner_mouse);
-		corner.addEventListener("mousedown", inner_mouse, true);
+		corner.addEventListener("mousedown", inner_mouse, {passive:true});
 
 		var mouse = [0,0];
 		var that = this;
