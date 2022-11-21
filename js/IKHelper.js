@@ -291,7 +291,7 @@ class IKHelper {
 
         if(state) this.updateBones(dt);
 
-        if(!this.visible || this.selectedBone == null || !this.character.selectedChain)
+        if(!this.visible || !this.character.selectedChain)
             return;
 
         let chainName = this.character.selectedChain;
