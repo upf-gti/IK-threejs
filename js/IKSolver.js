@@ -252,13 +252,13 @@ class BaseSolver {
 
         if( !newConstraint ){ 
             chainConstraints[ i ] = null; 
-            return true; 
+            return chainConstraints[ i ]; 
         }
 
         // same type. Do not allocate new memory, just change values
         if ( chainConstraints[ i ] && chainConstraints[ i ]._type == newConstraint.type ){
             chainConstraints[ i ].setConstraint( newConstraint );
-            return true;
+            return chainConstraints[ i ];
         }
         
         let c = null;
@@ -270,7 +270,7 @@ class BaseSolver {
 
         c.setConstraint( newConstraint );
         chainConstraints[ i ] = c;
-        return true;
+        return chainConstraints[ i ];
     }
 
     /**

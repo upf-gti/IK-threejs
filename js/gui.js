@@ -6,6 +6,7 @@ class GUI {
        
         this.editor = editor;
         this.boneProperties = {};
+        this.textInfo = document.getElementById("info");
         this.create();
     }
     create() {
@@ -17,7 +18,6 @@ class GUI {
         LiteGUI.add( this.mainArea );
         
         this.mainArea.onresize = window.onresize;
-       
         
         this.createSidePanel()
        
@@ -38,7 +38,11 @@ class GUI {
     }
 
     updateSidePanel(root = this.sidePanel, options = {}) {
-
+        if(!this.editor.currentModel.selectedChain) {
+            let c = Object.keys(this.editor.currentModel.chains);
+            if(c.length)
+                this.editor.setSelectedChain(c[0]);
+        }
         let newChain = {
             name: "",
             origin: null,
@@ -75,84 +79,89 @@ class GUI {
 
             //Chains
             widgets.addSection("Chains", {});
-            
             /*----------------------------------------------- IK Solver Inspector -----------------------------------------------*/
             let chains = this.editor.currentModel.chains;
-            for(let i = 0; i < chains.length; i++){
-                widgets.addTitle(chains[i].name, {});
-                
-                let bones = this.editor.currentModel.skeleton.bones;
-                for(let j = chains[i].bones.length - 1; j >= 0; j--){
-                    widgets.addInfo("Bone", bones[chains[i].bones[j]].name);
-                    widgets.widgets_per_row = 1;
-                    let constraint = chains[i].constraints[j];
-                    if(constraint) {
-                        let types = Object.keys(FABRIKSolver.JOINTTYPES);
-                        widgets.addString("Constraint type", types[constraint.type], {disabled: true});
+            let names = Object.keys(chains);
+            widgets.addCombo("Current chain", this.editor.currentModel.selectedChain, {values: names, callback: v => {
+                this.editor.setSelectedChain(v);
+                widgets.refresh();
+            }})
+            // for(let i in chains){
+                let chain = chains[this.editor.currentModel.selectedChain];
+                if(chain) {
+                        
+                    widgets.addTitle(chain.name, {});
+                    
+                    let bones = this.editor.currentModel.skeleton.bones;
+                    for(let j = chain.bones.length - 1; j >= 0; j--){
+                        widgets.addInfo("Bone", bones[chain.bones[j]].name);
+                        widgets.widgets_per_row = 1;
+                        let constraint = chain.constraints[j];
+                        if(constraint) {
+                            let types = Object.keys(FABRIKSolver.JOINTTYPES);
+                            widgets.addString("Constraint type", types[constraint.type], {disabled: true});
 
-                        for(let c in constraint) {
-                            
-                            if(c == "type") 
-                                continue;
-                            else if(c == 'min' || c == 'max') {
-                                widgets.addNumber(c, constraint[c]*180/Math.PI, {min: -360, max : 360, callback: v => {
-                                    constraint[c] = v*Math.PI/180;
-                                    this.editor.currentModel.FABRIKSolver.setConstraintToBone( chains[i].name, j, constraint ); 
-                                    this.editor.currentModel.CCDIKSolver.setConstraintToBone( chains[i].name, j, constraint ); 
-                                    this.editor.ikHelper.onBoneSelected();
-                                }});
-                                chains[i].constraints[j] = constraint;
-                                continue;
-                            }
-                            else if(c == 'twist' || c == 'polar' || c == 'azimuth') {
-                                let values = [constraint[c][0]*180/Math.PI, constraint[c][1]*180/Math.PI];
-                                widgets.addVector2(c, values, {min: c == 'polar' ? 0 : -360, max: c == 'polar' ? 180 : 360, callback: v => {
-                                    constraint[c][0] = v[0]*Math.PI/180;
-                                    constraint[c][1] = v[1]*Math.PI/180;
-                                    this.editor.currentModel.FABRIKSolver.setConstraintToBone( chains[i].name, j, constraint ); 
-                                    this.editor.currentModel.CCDIKSolver.setConstraintToBone( chains[i].name, j, constraint ); 
-                                    this.editor.ikHelper.onBoneSelected();
-                                }});
-                                chains[i].constraints[j] = constraint;
-                                continue;
-                            }
-                            widgets.addDefault(c, constraint[c], v=>{
-                                if ( v.length > 0 ){
-                                    for ( let k = 0; k < v.length; ++k ){ constraint[c][k] = v[k]; }
-                                }else
-                                { 
-                                    constraint[c] = v; 
+                            for(let c in constraint) {
+                                
+                                if(c == "type") 
+                                    continue;
+                                else if(c == 'min' || c == 'max') {
+                                    widgets.addNumber(c, constraint[c]*180/Math.PI, {min: -360, max : 360, callback: v => {
+                                        constraint[c] = v*Math.PI/180;
+                                        this.editor.updateConstraint( chain.name, j, constraint );
+
+                                    }});
+                                    chain.constraints[j] = constraint;
+                                    continue;
                                 }
-                                this.editor.currentModel.FABRIKSolver.setConstraintToBone( chains[i].name, j, constraint ); 
-                                this.editor.currentModel.CCDIKSolver.setConstraintToBone( chains[i].name, j, constraint ); 
-                                this.editor.ikHelper.onBoneSelected();
-                            });
-                            chains[i].constraints[j] = constraint;
+                                else if(c == 'twist' || c == 'polar' || c == 'azimuth') {
+                                    let values = [constraint[c][0]*180/Math.PI, constraint[c][1]*180/Math.PI];
+                                    widgets.addVector2(c, values, {min: c == 'polar' ? 0 : -360, max: c == 'polar' ? 180 : 360, callback: v => {
+                                        constraint[c][0] = v[0]*Math.PI/180;
+                                        constraint[c][1] = v[1]*Math.PI/180;
+                                        this.editor.updateConstraint( chain.name, j, constraint );
+
+                                    }});
+                                    chain.constraints[j] = constraint;
+                                    continue;
+                                }
+                                widgets.addDefault(c, constraint[c], v=>{
+                                    if ( v.length > 0 ){
+                                        for ( let k = 0; k < v.length; ++k ){ constraint[c][k] = v[k]; }
+                                    }else
+                                    { 
+                                        constraint[c] = v; 
+                                    }
+                                    this.editor.updateConstraint( chain.name, j, constraint );
+                                });
+                                chain.constraints[j] = constraint;
+                            }
+                            widgets.addButton(null, "Remove constraint", { callback: v => {
+
+                                this.editor.updateConstraint( chain.name, j, null );
+                                
+                                chain.constraints[j] = null;
+                                
+                                widgets.refresh();
+                            }})
+                        }else{
+                            if(j > 0){
+                                widgets.addButton(null, "Add constraint", { callback: v => {
+                                    this.createConstraintDialog(chain.name, j, bones[chain.bones[j]].name, widgets.refresh.bind(widgets));
+                                }})
+                            }
                         }
-                        widgets.addButton(null, "Remove constraint", { callback: v => {
+                        widgets.addSeparator();    
 
-                            this.editor.currentModel.FABRIKSolver.setConstraintToBone( chains[i].name, j, null );
-                            this.editor.currentModel.CCDIKSolver.setConstraintToBone( chains[i].name, j, null );
-                            chains[i].constraints[j] = null;
-                            this.editor.ikHelper.onBoneSelected();
-                            widgets.refresh();
-                        }})
-                    }else{
-                        widgets.addButton(null, "Add constraint", { callback: v => {
-                            this.createIKSolverConstraintDialog(i, j, bones[chains[i].bones[j]].name, widgets.refresh.bind(widgets));
-                        }})
                     }
-                    widgets.addSeparator();    
-
+                    let rBtn = widgets.addButton(null, "Delete chain", { callback: v => {
+                        this.editor.removeChain(chain.name);
+                        widgets.refresh();
+                    }})
+                    rBtn.getElementsByTagName("button")[0].style["background-color"] =  "indianred";
+                    widgets.addSeparator();
                 }
-                let rBtn = widgets.addButton(null, "Delete chain", { callback: v => {
-                    this.editor.removeChain(this.editor.currentModel, chains[i].name);
-                    widgets.refresh();
-                }})
-                rBtn.getElementsByTagName("button")[0].style["background-color"] =  "indianred";
-                widgets.addSeparator();
-            }
-        
+            
 
             /** Add new chain */
             widgets.addTitle("New chain");
@@ -164,7 +173,7 @@ class GUI {
             widgets.widgets_per_row = 2;
             
             //Select origin bone
-            let origin = newChain.origin == null? null: this.editor.currentModel.skeleton.bones[newChain.origin].name
+            let origin = newChain.origin == null ? null: this.editor.currentModel.skeleton.bones[newChain.origin].name
             widgets.addString("Origin bone", origin, { width: '80%', disabled: true})
             widgets.addButton(null, "+", {title: "From selected", width: '10%', micro: true, callback: v => {
                 newChain.origin = this.editor.ikHelper.selectedBone;
@@ -198,7 +207,7 @@ class GUI {
                 widgets.widgets_per_row = 2;
                 widgets.addString("Target", newChain.target == true ? null : newChain.target, {  width: '80%', disabled: true});
                 widgets.addButton(null, "+", {title: "From selected", width: '10%', micro: true, callback: v => {
-                    newChain.target = this.selectedTarget.children[0].object.name;
+                    newChain.target = this.editor.scene.getObjectByName("control"+this.editor.currentModel.selectedChain).children[0].object.name;
                     widgets.refresh();
                 }});
             }
@@ -216,7 +225,7 @@ class GUI {
                     alert("End effector bone required");
                     return;
                 }
-                this.editor.addChain(this.editor.currentModel, newChain,widgets.refresh.bind(widgets) );
+                this.editor.addChain(this.editor.currentModel, newChain, widgets.refresh.bind(widgets) );
                 
             }})
             btn.getElementsByTagName("button")[0].style["background-color"] =  "cadetblue";
@@ -229,7 +238,11 @@ class GUI {
         element.scrollTop = options.maxScroll ? maxScroll : (options.scroll ? options.scroll : 0);
     }
 
-    createIKSolverConstraintDialog(chainIdx, chainBoneIdx, boneName, callback = null) {
+    createConstraintDialog(chainName, chainBoneIdx, boneName, callback = null) {
+
+        let d = document.getElementById("dialog");
+        if(d)
+            d.parentElement.removeChild(d);
 
         let inspector = new LiteGUI.Inspector();
         inspector.addTitle(boneName);
@@ -309,11 +322,10 @@ class GUI {
                 else {
                     newConstraint = constraint.omni;
                 }
-                this.editor.currentModel.chains[chainIdx].constraints[chainBoneIdx] = newConstraint;
-                this.editor.currentModel.FABRIKSolver.setConstraintToBone( this.editor.currentModel.FABRIKSolver.chains[chainIdx].name, chainBoneIdx, newConstraint);
-                this.editor.currentModel.CCDIKSolver.setConstraintToBone( this.editor.currentModel.CCDIKSolver.chains[chainIdx].name, chainBoneIdx, newConstraint);
+                this.editor.currentModel.chains[chainName].constraints[chainBoneIdx] = newConstraint;
+                this.editor.addConstraint(chainName, chainBoneIdx, newConstraint )
+                
                 dialog.close();
-                this.editor.ikHelper.onBoneSelected();
                 if(callback)
                     callback();
             }});
@@ -322,11 +334,14 @@ class GUI {
             }});
         }
         inspector.on_refresh();
-        let dialog = new LiteGUI.Dialog({title: "Bone constraints", close: true, draggable: true});
+        let dialog = new LiteGUI.Dialog({id: "dialog", title: boneName +" constraints", close: true, draggable: true});
         dialog.add(inspector);
         dialog.show();
     }
 
+    setTextInfo(text) {
+        this.textInfo.innerText = text;
+    }
 
     resize() {
       

@@ -59,7 +59,12 @@ class App {
         this.controls.update();
 
         this.ikHelper = new IKHelper(this);
-        
+        this.ikHelper.onSelect = (objectName) => {
+            this.gui.setTextInfo(objectName);
+        }
+        this.ikHelper.onDeselect = () => {
+            this.gui.setTextInfo("");
+        }
         this.renderer.render( this.scene, this.camera );
         
         window.addEventListener( 'resize', this.onWindowResize.bind(this) );
@@ -199,16 +204,24 @@ class App {
 
     changeCurrentModel(name) {
 
-        this.scene.getObjectByName("Character_"+this.currentModel.name).visible = false;
-        this.scene.getObjectByName("SkeletonHelper_"+this.currentModel.name).visible = false;
+        this.currentModel.setVisibility(false, this.updateAttachedControls.bind(this));
+   
         for(let i in this.models) {
             if(this.models[i].name == name) {
                 this.currentModel = this.models[i];
                 this.ikHelper.begin(this.models[i]);
-                this.scene.getObjectByName("Character_"+name).visible = true;
-                this.scene.getObjectByName("SkeletonHelper_"+name).visible = true;
+                this.currentModel.setVisibility(true, this.updateAttachedControls.bind(this));
+                
                 break;
             }
+        }
+    }
+    
+    
+    updateAttachedControls(v) {
+        // CHANGE VISIBILITY OF CHAIN TARGETS ATTACHED CONTROLS
+        for(let i in this.currentModel.chains) {
+            this.scene.getObjectByName("control"+i).visible = v;
         }
     }
 
@@ -244,7 +257,9 @@ class App {
                 this.scene.add( target );
                 let transfControl = new TransformControls( this.camera, this.renderer.domElement );
                 transfControl.addEventListener( 'dragging-changed',  ( event ) => { this.controls.enabled = ! event.value; } );
-                transfControl.addEventListener( 'mouseDown',  ( event ) => { this.gui.selectedTarget = event.target; } );
+                transfControl.addEventListener( 'mouseDown',  ( event ) => { 
+                    this.setSelectedChain(event.target.name.replace("control",""));
+                 } );
                 transfControl.attach( target );
                 transfControl.size = 0.6;
                 transfControl.name = "control"+ chain.name;
@@ -257,7 +272,7 @@ class App {
             character.skeleton.computeBoneTexture();
             character.skeleton.update();
         }
-
+        target.visible = true;
         //Create array of chain bones
         let origin = character.skeleton.bones[chain.origin];
         let endEffector = character.skeleton.bones[chain.endEffector];
@@ -281,45 +296,92 @@ class App {
             constraints: constraints,
             target: target 
         }
-        character.chains.push(ikChain);
+        character.chains[ikChain.name] = ikChain;
         
         if ( !character.FABRIKSolver ){ character.FABRIKSolver = new FABRIKSolver( character.skeleton ); }
         character.FABRIKSolver.createChain(ikChain.bones, ikChain.constraints, ikChain.target, ikChain.name);
 
         if ( !character.CCDIKSolver ){ character.CCDIKSolver = new CCDIKSolver( character.skeleton ); }
         character.CCDIKSolver.createChain(ikChain.bones, ikChain.constraints, ikChain.target, ikChain.name);
-
         
+        this.setSelectedChain(chain.name, character);
+        
+
         if(callback)
             callback();
     }
 
-    removeChain(character, chainName, callback = null) {
-        for(let i = 0; i < character.chains.length; i++) {
-            if(character.chains[i].name == chainName) {
-                character.chains.splice(i,1);
-                //remove chain from solvers
-                character.CCDIKSolver.removeChain(chainName);
-                character.FABRIKSolver.removeChain(chainName);
-                //remove target from the scene
-                for(let j = 0; j < character.chains.length; j++) {
-                    if(character.chains[j].target.name == character.chains[i].target.name) {
-                        return;
-                    }
-                }
-                //remove bone related to target
-                let b = character.skeleton.bones.indexOf(character.skeleton.getBoneByName("IKTarget"+chainName));
-                character.skeleton.bones.splice(b,1);
-                character.skeleton.boneInverses.splice(b,1) ;
-                character.skeleton.computeBoneTexture();
-                character.skeleton.update();
-                let t = this.scene.getObjectByName("IKTarget"+chainName);
-                this.scene.remove(t);
-                let c = this.scene.getObjectByName("control"+chainName);
-                c.detach(t);
-                this.scene.remove(c);
+    addConstraint(chainName, boneIdxChain, constraint ) {
+        let character = this.currentModel;
+        character.FABRIKSolver.setConstraintToBone( chainName, boneIdxChain, constraint );
+        constraint = character.CCDIKSolver.setConstraintToBone( chainName, boneIdxChain, constraint );
+        let bone = character.chains[chainName].bones[boneIdxChain];
+        if(constraint) {
+            this.ikHelper.addConstraintToChain(constraint, bone, chainName);
+        }
+    }
+
+    updateConstraint(chainName, boneIdxChain, constraint ) {
+        let character = this.currentModel;
+        character.FABRIKSolver.setConstraintToBone( chainName, boneIdxChain, constraint );
+        constraint = character.CCDIKSolver.setConstraintToBone( chainName, boneIdxChain, constraint );
+        let bone = character.chains[chainName].bones[boneIdxChain];
+        if (constraint == null) {
+            this.ikHelper.removeHelper(bone, chainName);
+        }
+    }
+
+    removeChain(chainName, callback = null) {
+        let character = this.currentModel;
+        
+        if(!character.chains[chainName]) 
+            return;
+
+        //remove chain from solvers
+        character.CCDIKSolver.removeChain(chainName);
+        character.FABRIKSolver.removeChain(chainName);
+        for(let c in character.chains) {
+            if(character.chains[c].target.name == character.chains[chainName].target.name && c != chainName) {
+                //remove helper
+                this.ikHelper.removeChainHelpers(chainName);
+                delete character.chains[chainName];
+                let keys = Object.keys(character.chains);
+                if(keys.length)
+                    this.setSelectedChain(keys[0], character);
+                if(callback)
+                    callback();
+                return;
             }
         }
+        //remove bone related to target
+        let b = character.skeleton.bones.indexOf(character.skeleton.getBoneByName("IKTarget"+chainName));
+        character.skeleton.bones.splice(b,1);
+        character.skeleton.boneInverses.splice(b,1) ;
+        character.skeleton.computeBoneTexture();
+        character.skeleton.update();
+        //remove target from the scene
+        let t = this.scene.getObjectByName("IKTarget"+chainName);
+        this.scene.remove(t);
+        let c = this.scene.getObjectByName("control"+chainName);
+        c.detach(t);
+        this.scene.remove(c);
+
+        //remove helper
+        this.ikHelper.removeChainHelpers(chainName);
+        delete character.chains[chainName];
+        let keys = Object.keys(character.chains);
+        if(keys.length)
+            this.setSelectedChain(keys[0], character);
+
+        if(callback)
+            callback();
+
+    }
+
+    setSelectedChain(name, character = this.currentModel) {
+        character.selectedChain = name;
+        this.ikHelper.updateHelpers = true;
+        this.gui.updateSidePanel();
     }
 
     animate() {
@@ -395,11 +457,24 @@ class Character {
         this.name = name;
         this.url = url;
         this.model = null;
-        this.chains = [];
+        this.chains = {};
+        this.selectedChain = null;
         this.skeleton = null;
         this.skeletonHelper = null;
         this.FABRIKSolver = null;
         this.CCDIKSolver = null;
+    }
+
+    setVisibility( v, callback = null ) {
+        this.skeletonHelper.visible = v;
+        this.model.visible = v;
+
+        for(let i in this.chains) {
+            this.chains[i].target.visible = v;
+        }
+
+        if(callback)
+            callback(v);
     }
 }
 
