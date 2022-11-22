@@ -176,8 +176,12 @@ class BaseSolver {
      */
     removeChain( name ){
         for (let i = 0; i< this.chains.length; ++i){
-            if ( this.chains[i].name === name ){ this.chains.splice(i, 1); }
+            if ( this.chains[i].name === name ){ 
+                this.chains.splice(i, 1); 
+                return true; 
+            }
         }
+        return false;
     }
 
     /**
@@ -204,7 +208,11 @@ class BaseSolver {
      */
     setChainEnabler( name, isEnabled ){
         let chain = this.getChain( name );
-        if ( chain ){ chain.enabler = !!isEnabled; }
+        if ( chain ){ 
+            chain.enabler = !!isEnabled; 
+            return true; 
+        }
+        return false;
     }
 
     /**

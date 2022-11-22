@@ -109,6 +109,8 @@ Removes the specified chain from the internal list if found.
 
 - name : (string).
 
+Returns **true** if successful, **false** otherwise.
+
 ---
 ## removeAllChains( )
 
@@ -130,6 +132,8 @@ Enables/Disables a chain.
 
 - name : (string).
 - isEnabled : (boolean)
+
+Returns **true** if successful, **false** otherwise.
 
 ---
 ## setChainEnablerAll( isEnabled )
