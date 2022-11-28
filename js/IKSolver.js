@@ -118,6 +118,33 @@ class BaseSolver {
             this._targetPositions[i] = new THREE.Vector3();
         }
 
+        this._onSetConstraintCallbacks = [];
+        this._onCreateChainCallbacks = [];
+        this._onDestroyChainCallbacks = [];
+
+    }
+
+    addEventListener( name, callback ){
+        if ( typeof( callback ) === 'function' )
+        switch( name ){
+            case "onCreateChain":   this._onCreateChainCallbacks.push( callback );      break;
+            case "onDestroyChain":  this._onDestroyChainCallbacks.push( callback );     break;
+            case "onSetConstraint": this._onSetConstraintCallbacks.push( callback );    break;
+        }
+    }
+
+    _dispatchEvent( name, eventObj ){
+        let list = null;
+        switch( name ){
+            case "onCreateChain":   list = this._onCreateChainCallbacks;    break;
+            case "onDestroyChain":  list = this._onDestroyChainCallbacks;   break;
+            case "onSetConstraint": list = this._onSetConstraintCallbacks;  break;
+        }
+        if ( ! list ){ return; }
+        for( let i = 0; i < list.length; ++i ){
+            list[i]( eventObj );
+        }
+        
     }
 
     /**
@@ -149,25 +176,28 @@ class BaseSolver {
     createChain ( newChain, newConstraints, targetObj, name = "" ){
         //        { x: [min, max], y:[min, max], z:[min, max] }
         // if constraints || x || y || z null, that axis becomes unconstrained. Other
-        
-        let chainInfo = {};
 
         let chain = JSON.parse(JSON.stringify(newChain));
         let constraints = []; 
         constraints.length = chain.length;
-        constraints[0] = null; // effector will not be rotated. Right now, the entry is necessary but not used
-        for( let i = 1; i < chain.length; ++i ){
-            if( !newConstraints || i >= newConstraints.length ){ constraints[i] = null; continue; }
-            this._setConstraintToBone( chain, constraints, i, newConstraints[i] );
-        }
         
-        // add to list
+        let chainInfo = {};
         chainInfo.name = (typeof(name) === 'string' ) ? name : "";
         chainInfo.chain = chain;
         chainInfo.constraints = constraints;
         chainInfo.target = targetObj;
         chainInfo.enabler = true;
+        // add to list
         this.chains.push( chainInfo );
+        this._dispatchEvent( "onCreateChain", chainInfo );
+
+        
+        constraints[0] = null; // effector will not be rotated. Right now, the entry is necessary but not used
+        for( let i = 1; i < chain.length; ++i ){
+            if( !newConstraints || i >= newConstraints.length ){ this._setConstraintToBone( chainInfo, i, null ); }
+            else{ this._setConstraintToBone( chainInfo, i, newConstraints[i] ); }
+        }
+        
     }
 
     /** O(N)
@@ -177,7 +207,8 @@ class BaseSolver {
     removeChain( name ){
         for (let i = 0; i< this.chains.length; ++i){
             if ( this.chains[i].name === name ){ 
-                this.chains.splice(i, 1); 
+                let removedChain = this.chains.splice(i, 1);
+                this._dispatchEvent( "onDestroyChain", removedChain[0] ); 
                 return true; 
             }
         }
@@ -189,6 +220,7 @@ class BaseSolver {
      */
     removeAllChains () {
         this.chains = [];
+        this._dispatchEvent( "onDestroyChain", null );
     }
     
     /** O(N)
@@ -236,7 +268,7 @@ class BaseSolver {
     setConstraintToBone( chainName, idxBoneInChain, newConstraint ){
         let chainInfo = this.getChain( chainName );
         if ( !chainInfo ) { return false; }
-        return this._setConstraintToBone( chainInfo.chain, chainInfo.constraints, idxBoneInChain, newConstraint );
+        return this._setConstraintToBone( chainInfo, idxBoneInChain, newConstraint );
     }   
 
     /**
@@ -247,20 +279,25 @@ class BaseSolver {
      * @param {obj} newConstraint new constraint attributes. Can be null 
      * @returns 
      */
-    _setConstraintToBone( chain, chainConstraints, i, newConstraint ){
-        if ( i <= 0 || i >= chain.length ){ return false; } // effector or out of boundaries
+    _setConstraintToBone( chainInfo, i, newConstraint ){
+        if ( i <= 0 || i >= chainInfo.chain.length ){ return false; } // effector or out of boundaries
+        
+        let chainConstraints = chainInfo.constraints;
 
         if( !newConstraint ){ 
             chainConstraints[ i ] = null; 
+            this._dispatchEvent("onSetConstraint", { c: chainInfo, i: i } );
             return chainConstraints[ i ]; 
         }
 
         // same type. Do not allocate new memory, just change values
         if ( chainConstraints[ i ] && chainConstraints[ i ]._type == newConstraint.type ){
             chainConstraints[ i ].setConstraint( newConstraint );
+            this._dispatchEvent("onSetConstraint", { c: chainInfo, i: i } );
             return chainConstraints[ i ];
         }
-        
+
+        let chain = chainInfo.chain;
         let c = null;
         switch( newConstraint.type ){
             case FABRIKSolver.JOINTTYPES.HINGE: c = new JCHinge( this._boneDirs[ chain[ i-1 ] ] ); break;
@@ -270,6 +307,8 @@ class BaseSolver {
 
         c.setConstraint( newConstraint );
         chainConstraints[ i ] = c;
+
+        this._dispatchEvent("onSetConstraint", { c: chainInfo, i: i } );
         return chainConstraints[ i ];
     }
 

@@ -227,8 +227,9 @@ class IKHelper {
     }
 
     removeHelper(idx, chainName) {
-        this.constraintHelpers[chainName][idx].removeFromParent();
-        this.scene.remove(this.constraintHelpers[chainName][idx]);
+        this.constraintHelpers[chainName][idx].removeFromParent(); // remove from scene
+        this.constraintHelpers[chainName][idx].geometry.dispose(); // memory
+        this.constraintHelpers[chainName][idx].material.dispose(); // memory
         delete this.constraintHelpers[chainName][idx];
     }
 

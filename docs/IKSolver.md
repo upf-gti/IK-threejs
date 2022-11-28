@@ -79,6 +79,17 @@ Can be accessed from both classes as
 - skeleton : (ThreeJs skeleton).
 
 ---
+## addEventListener( name, callback )
+
+Adds an event callback. The allowed events are *onSetConstraint*, *onCreateChain*, *onDestroyChain*.
+*onCreateChain* is first.
+*onSetConstraint* is called every time a "set constraint" method is called. Does not trigger when destroying a chain
+*onDestroyChain* only event triggered when distroying a chain. No constraint specific events are triggered.
+
+- name : (string).
+- callback : (function)
+
+---
 ## setIterations( iterations )
 
 Sets the amount of iterations to compute during update.
