@@ -25,9 +25,9 @@ class IKHelper {
         this.scene = scene;
         this.ikSolver = ikSolver;
         ikSolver.addEventListener( "onSetConstraint", (e) => {
-            this.removeHelper( e.c.chain[e.i], e.c.name);
+            this._removeHelper( e.c.chain[e.i], e.c.name);
             if( e.c.constraints[e.i] ){
-                this.addConstraintToChain( e.c.constraints[e.i], e.c.chain[e.i], e.c.name );
+                this._addConstraintToChain( e.c.constraints[e.i], e.c.chain[e.i], e.c.name );
             }
         });
 
@@ -38,17 +38,15 @@ class IKHelper {
         });
 
         ikSolver.addEventListener( "onDestroyChain", (e) =>{
-            this.removeChainHelpers(e.name);
+            this._removeChainHelpers(e.name);
         } );
 
         this.skeleton = ikSolver.skeleton;
         this.skeletonHelper = new THREE.SkeletonHelper( this.skeleton.bones[0] );
         this.skeletonHelper.visible = !!(this.visible & this.visibleFlags & IKHelper.VISIBILITYFLAGS.SKELETON);;
         this.skeletonHelper.frustumCulled = false;
-        //this.skeletonHelper.name = "SkeletonHelper_" + character.name;
         this.scene.add(this.skeletonHelper);
         
-        //this.character = character;
         
         // point cloud for bones
         const pointsShaderMaterial = new THREE.ShaderMaterial( {
@@ -79,17 +77,15 @@ class IKHelper {
         geometry.setAttribute( 'size', new THREE.Float32BufferAttribute( new Array(positionAttribute.count).fill(size), 1 ) );
 
         this.bonePoints = new THREE.Points( geometry, pointsShaderMaterial );
-        //this.bonePoints.name = "GizmoPoints_" + character.name;
         this.bonePoints.renderOrder = 1;
         this.bonePoints.visible = !!(this.visible & this.visibleFlags & IKHelper.VISIBILITYFLAGS.BONEPOINTS);
-        //this.scene.remove(this.scene.getObjectByName(this.bonePoints.name));
         this.scene.add( this.bonePoints );
       
 
-        this.initConstraintHelpers();
+        this._initConstraintHelpers();
 
         // First update to get bones in place
-        this.update(true, 0.0);
+        this.update();
 
     }
 
@@ -105,7 +101,7 @@ class IKHelper {
         }
         if ( this.constraintHelpers ){
             for( let chain in this.constraintHelpers) {
-                this.removeChainHelpers( chain );
+                this._removeChainHelpers( chain );
             }
         }
         this.constraintHelpers = {};
@@ -113,10 +109,10 @@ class IKHelper {
     }
 
 
-    initConstraintHelpers() {
+    _initConstraintHelpers() {
 
         for( let chain in this.constraintHelpers) {
-            this.removeChainHelpers( chain );
+            this._removeChainHelpers( chain );
         }
         this.constraintHelpers = {};
 
@@ -130,30 +126,30 @@ class IKHelper {
                     continue;
             
                 if(constraint._type == this.ikSolver.constructor.JOINTTYPES.HINGE) {
-                    this.addHingeHelper(constraint, chain.chain[j], chain.name);
+                    this._addHingeHelper(constraint, chain.chain[j], chain.name);
                 }
                 else if(constraint._type == this.ikSolver.constructor.JOINTTYPES.BALLSOCKET) {
-                    this.addBallsocketHelper(constraint, chain.chain[j], chain.name);
+                    this._addBallsocketHelper(constraint, chain.chain[j], chain.name);
                 }
                 else
-                    this.addOmniHelper(constraint, chain.chain[j], chain.name);
+                    this._addOmniHelper(constraint, chain.chain[j], chain.name);
             }
         }
     }
 
-    addConstraintToChain(constraint, bone, chainName) {
+    _addConstraintToChain(constraint, bone, chainName) {
         if(constraint._type == this.ikSolver.constructor.JOINTTYPES.HINGE) {
-            this.addHingeHelper(constraint, bone, chainName)
+            this._addHingeHelper(constraint, bone, chainName)
         }
         else if(constraint._type == this.ikSolver.constructor.JOINTTYPES.BALLSOCKET) {
-            this.addBallsocketHelper(constraint, bone, chainName)
+            this._addBallsocketHelper(constraint, bone, chainName)
         }
         else {
-            this.addOmniHelper(constraint, bone, chainName)
+            this._addOmniHelper(constraint, bone, chainName)
         }
     }
 
-    addOmniHelper(constraint, bone, chainName) {
+    _addOmniHelper(constraint, bone, chainName) {
 
         const material = new THREE.MeshBasicMaterial({
             depthTest: false,
@@ -178,7 +174,7 @@ class IKHelper {
         this.constraintHelpers[chainName][bone] = helper;
     }
 
-    addBallsocketHelper(constraint, bone, chainName) {
+    _addBallsocketHelper(constraint, bone, chainName) {
 
         const material = new THREE.MeshBasicMaterial({
             depthTest: false,
@@ -225,7 +221,7 @@ class IKHelper {
         this.constraintHelpers[chainName][bone] = helper;
     }
 
-    addHingeHelper(constraint, bone, chainName) {
+    _addHingeHelper(constraint, bone, chainName) {
 
         const material = new THREE.MeshBasicMaterial({
             depthTest: false,
@@ -263,7 +259,7 @@ class IKHelper {
         this.constraintHelpers[chainName][bone] = helper;
     }
 
-    removeHelper(idx, chainName) {
+    _removeHelper(idx, chainName) {
         if ( this.constraintHelpers && this.constraintHelpers[chainName] && this.constraintHelpers[chainName][idx] ){
             this.constraintHelpers[chainName][idx].removeFromParent(); // remove from scene
             this.constraintHelpers[chainName][idx].geometry.dispose(); // memory
@@ -272,21 +268,21 @@ class IKHelper {
         }
     }
 
-    removeChainHelpers(chainName) {
+    _removeChainHelpers(chainName) {
         for(let idx in this.constraintHelpers[chainName]) {
-            this.removeHelper(idx, chainName);
+            this._removeHelper(idx, chainName);
         }
         delete this.constraintHelpers[chainName];
     }
 
-    update(state, dt) {
+    update() {
 
-        if(state) this.updateBones(dt);
+        this._updateBones();
         return;
 
     }
 
-    updateBones( dt ) {
+    _updateBones( ) {
 
         if(!this.bonePoints)
             return;

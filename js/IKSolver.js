@@ -357,7 +357,9 @@ class FABRIKSolver extends BaseSolver {
         let positions = this._positions;
         let targetPositions = this._targetPositions;
         
-        for( let it = 0; it < this.iterations; ++it ){
+        let it = 0;
+        for( it = 0; it < this.iterations; ++it ){
+            let keepAlive = false;
 
             for ( let chainIdx = 0; chainIdx < this.chains.length; ++chainIdx ){
                 let chainInfo = this.chains[ chainIdx ]; 
@@ -375,6 +377,8 @@ class FABRIKSolver extends BaseSolver {
                 _vec3_2.setFromMatrixPosition( bones[ chain[0] ].matrixWorld ); // avoid getWorldPosition, it will force-update every bone worldmatrix
                 if ( currTargetPoint.distanceToSquared( _vec3_2 ) <= this.sqThreshold ){ continue; }
                 
+                keepAlive = true;
+
                 // current pose world positions
                 for (let i = 0; i < chain.length; ++i){
                     positions[ chain[i] ].setFromMatrixPosition( bones[ chain[i] ].matrixWorld );
@@ -464,8 +468,11 @@ class FABRIKSolver extends BaseSolver {
                     bones[ boneIdx ].updateMatrixWorld(true);
                 
                 }
-            }  
+            }
+            
+            if ( !keepAlive ){ break; }
         }
+
     }    
 }
 
@@ -668,11 +675,11 @@ class JointConstraint{
 
         // actual SWING pos constraint. Specific of each class
         this._applyConstraintSwing( swingPos );
-        
+
         // compute corrected swing. 
         swingCorrectedAxis.crossVectors( boneDir, swingPos );
 
-        if ( swingCorrectedAxis.lengthSq() < 0.0001 ){ // swing corrected Position is parallel to twist axis
+        if ( swingCorrectedAxis.lengthSq() < 0.00001 ){ // swing corrected Position is parallel to twist axis
             if  ( boneDir.dot( swingPos ) < -0.9999){  // opposite side -> rotation = 180º
                 swingCorrectedAxis.set( -boneDir.y, boneDir.x, boneDir.z ); 
                 swingCorrectedAxis.crossVectors( swingCorrectedAxis, boneDir ); // find any axis perpendicular to bone
@@ -687,9 +694,14 @@ class JointConstraint{
             swing.setFromAxisAngle( swingCorrectedAxis, boneDir.angleTo( swingPos ) );
             swing.normalize();
         }
-        
+
+
+
+        /*
+        // FOR SOME REASON CONSTRAINING SWING AND TWIST BREAKS THE TWISTING
         // actual TWIST constraint
         if( this._twist ){
+            
             let twistAngle = 2* Math.acos( twist.w ); 
             twistCorrectedAxis.set( twist.x, twist.y, twist.z ); // in reality this is axis*sin(angle/2) but it does not have any effect here
             if ( twistCorrectedAxis.dot( boneDir ) < 0 ){ twistAngle = ( -twistAngle ) + Math.PI * 2; } // correct angle value as acos only returns 0-180
@@ -701,6 +713,9 @@ class JointConstraint{
         // result
         outQuat.copy(twist);
         outQuat.premultiply(swing);
+        */
+
+        outQuat.copy(swing);
     }
 }
 
