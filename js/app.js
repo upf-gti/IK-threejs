@@ -5,7 +5,8 @@ import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/loa
 //import { CCDIKSolver } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/animation/CCDIKSolver.js';
 import { FABRIKSolver, CCDIKSolver } from './IKSolver.js'
 import { GUI } from './gui.js'
-import { IKHelper } from './IKHelper.js'
+//import { IKHelper } from './IKHelper.js'
+import { IKHelperExtended } from './IKHelperExtended.js'
 
 class App {
 
@@ -58,13 +59,13 @@ class App {
         this.controls.target.set(0.0, 1.3, 0);
         this.controls.update();
 
-        this.ikHelper = new IKHelper(this);
+        /*this.ikHelper = new IKHelperHelper();
         this.ikHelper.onSelect = (objectName) => {
             this.gui.setTextInfo(objectName);
         }
         this.ikHelper.onDeselect = () => {
             this.gui.setTextInfo("");
-        }
+        }*/
         this.renderer.render( this.scene, this.camera );
         
         window.addEventListener( 'resize', this.onWindowResize.bind(this) );
@@ -163,16 +164,14 @@ class App {
             this.scene.add(character.model);
             
             //Add skeleton helper's character to the scene and put it visible if it's the current model selected
-            character.skeletonHelper = new THREE.SkeletonHelper( character.model );
-            character.skeletonHelper.visible = true;
-            character.skeletonHelper.frustumCulled = false;
-            character.skeletonHelper.name = "SkeletonHelper_" + character.name;
-            character.skeletonHelper.visible = this.currentModel.name == character.name;;
-            this.scene.add(character.skeletonHelper);
-
+            //character.skeletonHelper = new THREE.SkeletonHelper( character.model );
+            // character.skeletonHelper.visible = true;
+            // character.skeletonHelper.frustumCulled = false;
+            // character.skeletonHelper.name = "SkeletonHelper_" + character.name;
+            // character.skeletonHelper.visible = this.currentModel.name == character.name;
+            // this.scene.add(character.skeletonHelper);
+            
             this.addChain(character, {name:"Arm", origin: character.bonesIdxs["LeftArm"], endEffector: character.bonesIdxs["LeftHand"]}, null, new THREE.Vector3(1,1,0));
-            if(this.currentModel.name == character.name)
-                this.ikHelper.begin(character)
 
             if ( callback ){ 
                 callback(character); 
@@ -209,7 +208,6 @@ class App {
         for(let i in this.models) {
             if(this.models[i].name == name) {
                 this.currentModel = this.models[i];
-                this.ikHelper.begin(this.models[i]);
                 this.currentModel.setVisibility(true, this.updateAttachedControls.bind(this));
                 
                 break;
@@ -304,6 +302,18 @@ class App {
         if ( !character.CCDIKSolver ){ character.CCDIKSolver = new CCDIKSolver( character.skeleton ); }
         character.CCDIKSolver.createChain(ikChain.bones, ikChain.constraints, ikChain.target, ikChain.name);
         
+        if ( !character.ikHelper ){ 
+            character.ikHelper = new IKHelperExtended(); 
+            character.ikHelper.begin( character.FABRIKSolver, this.scene, this.camera );
+            character.ikHelper.onSelect = (objectName) => {
+                this.gui.setTextInfo(objectName);
+            }
+            character.ikHelper.onDeselect = () => {
+                this.gui.setTextInfo("");
+            }
+            character.ikHelper.setVisibility(this.currentModel.name == character.name);
+        }
+
         this.setSelectedChain(chain.name, character);
         
 
@@ -317,7 +327,7 @@ class App {
         constraint = character.CCDIKSolver.setConstraintToBone( chainName, boneIdxChain, constraint );
         let bone = character.chains[chainName].bones[boneIdxChain];
         if(constraint) {
-            this.ikHelper.addConstraintToChain(constraint, bone, chainName);
+            //this.ikHelper.addConstraintToChain(constraint, bone, chainName);
         }
     }
 
@@ -327,7 +337,7 @@ class App {
         constraint = character.CCDIKSolver.setConstraintToBone( chainName, boneIdxChain, constraint );
         let bone = character.chains[chainName].bones[boneIdxChain];
         if (constraint == null) {
-            this.ikHelper.removeHelper(bone, chainName);
+            //this.ikHelper.removeHelper(bone, chainName);
         }
     }
 
@@ -343,7 +353,7 @@ class App {
         for(let c in character.chains) {
             if(character.chains[c].target.name == character.chains[chainName].target.name && c != chainName) {
                 //remove helper
-                this.ikHelper.removeChainHelpers(chainName);
+                //this.ikHelper.removeChainHelpers(chainName);
                 delete character.chains[chainName];
                 let keys = Object.keys(character.chains);
                 if(keys.length)
@@ -367,7 +377,7 @@ class App {
         this.scene.remove(c);
 
         //remove helper
-        this.ikHelper.removeChainHelpers(chainName);
+        //this.ikHelper.removeChainHelpers(chainName);
         delete character.chains[chainName];
         let keys = Object.keys(character.chains);
         if(keys.length)
@@ -380,7 +390,7 @@ class App {
 
     setSelectedChain(name, character = this.currentModel) {
         character.selectedChain = name;
-        this.ikHelper.updateHelpers = true;
+        character.ikHelper.updateHelpers = true;
         this.gui.updateSidePanel();
     }
 
@@ -415,7 +425,7 @@ class App {
             }
         }
                 
-        this.ikHelper.update(true, et);
+        this.currentModel.ikHelper.update(true, et);
         this.renderer.render( this.scene, this.camera );
     }
     
@@ -460,15 +470,17 @@ class Character {
         this.chains = {};
         this.selectedChain = null;
         this.skeleton = null;
-        this.skeletonHelper = null;
+        //this.skeletonHelper = null;
         this.FABRIKSolver = null;
         this.CCDIKSolver = null;
+        this.ikHelper = null;
     }
 
     setVisibility( v, callback = null ) {
-        this.skeletonHelper.visible = v;
+        //this.skeletonHelper.visible = v;
         this.model.visible = v;
 
+        if( this.ikHelper ) { this.ikHelper.setVisibility(v); }
         for(let i in this.chains) {
             this.chains[i].target.visible = v;
         }

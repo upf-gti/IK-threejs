@@ -67,8 +67,8 @@ class GUI {
                 widgets.refresh();
             }});
 
-            widgets.addCheckbox("Show skeleton", this.editor.ikHelper.visible, {callback: v => {
-                this.editor.ikHelper.setVisibility(v);
+            widgets.addCheckbox("Show skeleton", this.editor.currentModel.ikHelper.visible, {callback: v => {
+                this.editor.currentModel.ikHelper.setVisibility(v);
             }})
             //Solver Selector
             widgets.addSection("Solver", { pretitle: makePretitle('gizmo') });
@@ -176,7 +176,7 @@ class GUI {
             let origin = newChain.origin == null ? null: this.editor.currentModel.skeleton.bones[newChain.origin].name
             widgets.addString("Origin bone", origin, { width: '80%', disabled: true})
             widgets.addButton(null, "+", {title: "From selected", width: '10%', micro: true, callback: v => {
-                newChain.origin = this.editor.ikHelper.selectedBone;
+                newChain.origin = this.editor.currentModel.ikHelper.selectedBone;
                 widgets.refresh();
             }});
             widgets.addButton(null, "<img src='./data/imgs/mini-icon-trash.png'/>", {width: '10%', micro: true, callback: v => {
@@ -189,7 +189,7 @@ class GUI {
             widgets.widgets_per_row = 2;
             widgets.addString("End-effector bone", endEffector, {  width: '80%', disabled: true});
             widgets.addButton(null, "+", {title: "From selected", width: '10%', micro: true, callback: v => {
-                newChain.endEffector = this.editor.ikHelper.selectedBone;
+                newChain.endEffector = this.editor.currentModel.ikHelper.selectedBone;
                 widgets.refresh();
             }});
             widgets.addButton(null, "<img src='./data/imgs/mini-icon-trash.png'/>", { width: '10%', micro: true, callback: v => {
