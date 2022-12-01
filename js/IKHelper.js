@@ -189,12 +189,21 @@ class IKHelper {
         let mat = new THREE.Matrix3();
         mat.fromArray([...constraint._swingUp, ...constraint._swingFront, ...constraint._swingRight]);
 
-        let polMin = constraint._polar[0];
-        let polMax = constraint._polar[1];
+        
+        let polMin = 0;
+        let polMax = Math.PI;
+        
+        if ( constraint._polar ){
+            polMin = constraint._polar[0];
+            polMax = constraint._polar[1];
+        }
 
-        let aziMin = constraint._azimuth[0];
-        let aziMax = constraint._azimuth[1];
-
+        let aziMin = 0;
+        let aziMax = Math.PI * 2;
+        if ( constraint._azimuth ){
+            aziMin = constraint._azimuth[0];
+            aziMax = constraint._azimuth[1];
+        }
         if(polMin > polMax) { //vertical -- theta
             polMin -= 2*Math.PI;
         }
@@ -236,13 +245,17 @@ class IKHelper {
         let mat = new THREE.Matrix3();
         mat.fromArray([...constraint._swingUp, ...constraint._swingFront, ...constraint._swingRight]);
 
-        let min = constraint._limits[0];
-        let max = constraint._limits[1];
-        if(min > max) {
-            min -= 2*Math.PI;
+        let min = 0;
+        let max = Math.PI * 2;
+        if ( constraint._limits ){
+            min = constraint._limits[0];
+            max = constraint._limits[1];
+            if(min > max) {
+                min -= 2*Math.PI;
+            }
         }
         max = Math.abs(max - min);
-        
+
         let circle = new THREE.CircleGeometry( 1, 15, min - Math.PI*0.5, max);
 
         let helper = new THREE.Mesh( circle, material );
