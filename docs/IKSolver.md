@@ -34,9 +34,9 @@ ikSolver.createChain(
         
         {type: FABRIKSolver.JOINTTYPES.HINGE, twist:[ 0, 0.0001 ], axis:[1,0,0] }, // unconstrained angle of hinge   
         
-        {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.PI*0.25 ], polar:[0, Math.PI*0.5], azimuth:[-Math.PI * 0.6, Math.PI*0.4]},
+        {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.PI*0.25 ], axis:[0,1,0] polar:[0, Math.PI*0.5], azimuth:[-Math.PI * 0.6, Math.PI*0.4]},
 
-        {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.PI*0.25 ], polar:[0, Math.PI*0.5]} // unconstrained azimuth
+        {type: FABRIKSolver.JOINTTYPES.BALLSOCKET, twist:[ -Math.PI*0.25, Math.PI*0.25 ], polar:[0, Math.PI*0.5]} // unconstrained azimuth and default axis to 0,0,1
     ],
     target,
     "MyChain"

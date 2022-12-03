@@ -614,13 +614,13 @@ class JointConstraint{
         else if ( constraint.axis.isVector3 ){ front.copy( constraint.axis ); }
         else{ front.set( constraint.axis[0], constraint.axis[1], constraint.axis[2] ); }
         
-        if ( front.lengthSq < 0.00001 ){ front.set(0,0,1); } // default same direction as bone
+        if ( front.lengthSq() < 0.00001 ){ front.set(0,0,1); } // default same direction as bone
         front.normalize();
         
         // compute right axis ( X = cross(Y,Z) ) check front axis is not Y
         up.set( 0,1,0 );
         right.crossVectors( up, front ); // X = cross( Y, Z )
-        if ( right.lengthSq < 0.0001 ){ right.set( 1,0,0 ); } // z axis == -+y axis, right will be +x
+        if ( right.lengthSq() < 0.00001 ){ right.set( 1,0,0 ); } // z axis == -+y axis, right will be +x
         else{ right.normalize(); }
 
         up.crossVectors( front, right ); // Y = cross( Z, X )
@@ -697,7 +697,7 @@ class JointConstraint{
 
 
 
-        /*
+        
         // FOR SOME REASON CONSTRAINING SWING AND TWIST BREAKS THE TWISTING
         // actual TWIST constraint
         if( this._twist ){
@@ -713,9 +713,7 @@ class JointConstraint{
         // result
         outQuat.copy(twist);
         outQuat.premultiply(swing);
-        */
-
-        outQuat.copy(swing);
+        
     }
 }
 
