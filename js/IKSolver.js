@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 
-let _quat = new THREE.Quaternion();
-let _quat2 = new THREE.Quaternion();
+let _quat = new THREE.Quaternion(); // on update 
 
-let _quat3 = new THREE.Quaternion(); // twist
-let _quat4 = new THREE.Quaternion(); // swing
+let _quat2 = new THREE.Quaternion(); // on _applyconstraint,  wrongTwist
+let _quat3 = new THREE.Quaternion(); // on _applyconstraint, twist
+let _quat4 = new THREE.Quaternion(); // on _applyconstraint, swing
 
 let _vec3 = new THREE.Vector3();
 let _vec3_2 = new THREE.Vector3();
@@ -70,10 +70,13 @@ class BaseSolver {
         this.sqThreshold = 0.0000001;
 
         let numBones = this.skeleton.bones.length;
-        // precompute bind rotations (to not compute them constantly). Used in constraints. (some T-poses have rotations already applied... that is why this is needed)
-        this._bindQuats = [];
-        this._bindQuats.length;
         
+        // precompute bind rotations
+        this._bindQuats = [];
+        this._invBindQuats = [];
+        this._bindQuats.length;
+        this._invBindQuats.length;
+
         // direction of this bone ( parent -> this bone ) in bind position in parent coords (used in constraints) 
         this._boneDirs = [];
         this._boneDirs.length = numBones;
@@ -89,16 +92,19 @@ class BaseSolver {
             if ( parentIdx > -1){
                 _mat4.premultiply( this.skeleton.boneInverses[ parentIdx ] );
             }
+
             _quat.setFromRotationMatrix( _mat4 );
             this._bindQuats[i] = _quat.clone();
+            this._invBindQuats[i] = _quat.clone().invert();
+
             _vec3.setFromMatrixPosition( _mat4 ); // child's raw position with respect to its parent
             this._boneLengths[i] = _vec3.length();
 
-            this._boneDirs[i] = _vec3.clone(); // parent bind rotation not applied yet
+            this._boneDirs[i] = _vec3.clone(); // parent bind rotation not applied
         }
-        
-        // If skeleton.bones is always ordered, then boneDirs can be computed during bindQuats discovery
-        for( let i = 0; i < numBones; ++i ){
+
+          // If skeleton.bones is always ordered, then boneDirs can be computed during bindQuats discovery
+          for( let i = 0; i < numBones; ++i ){
             let parentIdx = this.skeleton.bones.indexOf( this.skeleton.bones[i].parent );
             if ( parentIdx > -1 ){ // if not root bone
                 this._boneDirs[i].applyQuaternion( this._bindQuats[ parentIdx ] ); // apply bind rotation
@@ -106,7 +112,7 @@ class BaseSolver {
             // now vec3 is the i-th bone in bind position in parent space coordinates
             this._boneDirs[i].normalize();
         }
-        
+               
         
         // generate world position buffers
         this._positions = [];
@@ -313,42 +319,65 @@ class BaseSolver {
     }
 
     /**
-     * Applies rotation restrictions on the specified bone. Bone 0 (effector) is not accepted as no restrictions should be applied to it
+     * Corrects undesired twist from ik and applies rotation restrictions on the specified bone. Bone 0 (effector) is not accepted, as no restrictions should be applied to it
      * @param {object} chainInfo 
      * @param {int > 0} chainBoneIndex 
+     * @param {THREE.Quaternion} newQuat new quaternion to substitute the current bone.quaternion
      * @returns 
      */
-    _applyConstraint ( chainInfo, chainBoneIndex = 1 ){
+    _applyConstraint ( chainInfo, chainBoneIndex = 1, newQuat ){
         let chain = chainInfo.chain;
-        let chainConstraints = chainInfo.constraints;
-        if ( !chainConstraints ){ return; }
-        let constraint = chainConstraints[ chainBoneIndex ];
-        if ( !constraint ){ return; }
-
+        let constraint = chainInfo.constraints[ chainBoneIndex ];
+        
         let boneIdx = chain[ chainBoneIndex ];
+        let nextBoneIdx = chain[ chainBoneIndex - 1 ]; 
         let bone = this.skeleton.bones[ boneIdx ];        
+        
+        let invBindRot = this._invBindQuats[ boneIdx ];
+        let bindRot = this._bindQuats[ boneIdx ];           
 
-        let invBindRot = _quat;
-        let poseRot = _quat2;
+        let wrongTwistInv = _quat2; // twist from newQuat derived from ik
+        let twist = _quat3; // twist related to the incoming pose
+        let swing = _quat4;
+        
+        // get rotation from bindPose to current pose ( visually better )
+        bone.quaternion.multiply( invBindRot );
+        newQuat.multiply( invBindRot );
+        
+        // in a twist-before-swing scheme
+        // TwistQuat = [ WR,  proj_VTwist( VRot ) ]
+        // SwingQuat = R*inv(T)
 
-        let bindRot = this._bindQuats[ boneIdx ];
-        invBindRot.copy( bindRot );
-        invBindRot.invert();
+        // twist given by the incoming pose (before the ik update)
+        _vec3_2.set( bone.quaternion.x, bone.quaternion.y, bone.quaternion.z );
+        _vec3_2.projectOnVector( this._boneDirs[ nextBoneIdx ] );
+        twist.set( _vec3_2.x, _vec3_2.y, _vec3_2.z, bone.quaternion.w );
+        twist.normalize(); // if quaternion == 0,0,0,0 -> normalize automatically sets to 0,0,0,1
+        
+        // ik adds some undesired twist
+        _vec3_2.set( newQuat.x, newQuat.y, newQuat.z );
+        _vec3_2.projectOnVector( this._boneDirs[ nextBoneIdx ] );
+        wrongTwistInv.set( _vec3_2.x, _vec3_2.y, _vec3_2.z, newQuat.w );
+        wrongTwistInv.normalize(); // if quaternion == 0,0,0,0 -> normalize automatically sets to 0,0,0,1
+        wrongTwistInv.invert();
+        
+        swing.copy( newQuat );
+        swing.multiply( wrongTwistInv );
+        swing.normalize(); 
 
-        // get only rotation starting from the bind pose
-        poseRot.multiplyQuaternions( bone.quaternion, invBindRot ); 
-
+        
         //actual twist-swing constraint
-        constraint.applyConstraint( poseRot, poseRot );
+        if( this.constraintsEnabler && constraint ){
+            constraint.applyConstraint( twist, swing );
+        }
 
         // commit results
-        bone.quaternion.copy( bindRot );
-        bone.quaternion.premultiply( poseRot );
-        bone.quaternion.normalize();
+        bone.quaternion.multiplyQuaternions( swing, twist );
+        bone.quaternion.multiply( bindRot );
     }
-
+        
 }
-BaseSolver.JOINTTYPES = { OMNI: 0, HINGE: 1, BALLSOCKET: 2 }; // omni is just the default no constrained joint
+BaseSolver.JOINTTYPES = { OMNI: 0, HINGE: 1, BALLSOCKET: 2 }; // omni is just the default not constrained joint
 
 
 class FABRIKSolver extends BaseSolver {
@@ -455,16 +484,15 @@ class FABRIKSolver extends BaseSolver {
                     let angle = oldVec.angleTo( newVec );
                     if ( angle > -0.00001 && angle < 0.00001 ){ continue; }// no additional rotation required
                     axis.crossVectors( oldVec, newVec );
+                
                     axis.normalize();
 
                     quat.setFromAxisAngle( axis, angle );
+                    quat.multiply( bones[ boneIdx ].quaternion );
                     quat.normalize();
 
-                    bones[ boneIdx ].quaternion.premultiply( quat ); 
+                    this._applyConstraint( chainInfo, i, quat );
                     
-                    if( this.constraintsEnabler )
-                        this._applyConstraint( chainInfo, i );
-
                     bones[ boneIdx ].updateMatrixWorld(true);
                 
                 }
@@ -514,18 +542,18 @@ class CCDIKSolver extends BaseSolver {
                     wToL.copy( bones[ boneIdx ].matrixWorld );
                     wToL.invert(); // maybe a matrix decomposition and manual inverse of elements is cheaper
 
-                    // transform to local 
+                    // transform to local but apply rotation
                     effectorLocal.applyMatrix4( wToL );
-//                  effectorLocal.applyQuaternion( bones[ boneIdx ].quaternion ); // apply bind quaternion 
+                    effectorLocal.applyQuaternion( bones[ boneIdx ].quaternion ); 
                     effectorLocal.normalize();
                     targetLocal.copy( targetWorld );
                     targetLocal.applyMatrix4( wToL );
-//                    targetLocal.applyQuaternion( bones[ boneIdx ].quaternion ); // apply bind quaternion 
+                    targetLocal.applyQuaternion( bones[ boneIdx ].quaternion ); 
                     targetLocal.normalize();
 
                     if ( targetLocal.lengthSq() < 0.00001 || effectorLocal.lengthSq() < 0.00001 ){ continue; }
 
-                    // find quaternion
+                    // find quaternion from current pose to desired pose
                     let axis = _vec3_4;
                     let dot = effectorLocal.dot(targetLocal);
                     let angle = 0;
@@ -540,15 +568,12 @@ class CCDIKSolver extends BaseSolver {
 
                     let quat = _quat;
                     quat.setFromAxisAngle( axis, angle );
-                    
-                    bones[ boneIdx ].quaternion.multiply( quat );
+                    quat.multiply( bones[ boneIdx ].quaternion );
+                    quat.normalize();
 
-                    // constriants if any
-                    if( this.constraintsEnabler )
-                        this._applyConstraint( chainInfo, i );
+                    this._applyConstraint( chainInfo, i, quat );
 
                     bones[ boneIdx ].updateMatrixWorld(true);
-
 
                 }               
                 
@@ -646,34 +671,20 @@ class JointConstraint{
      _applyConstraintSwing( swingPos ){}
 
     /**
-     * @param {THREE.Quaternion} inQuat quaternion to correct. This quaternion represent the rotation to apply to boneDir
-     * @param {THREE.Quaternion} outQuat corrected quaternion. Can be the same as inQuat
+     * @param {THREE.Quaternion} twist quaternion to correct. Overwritten
+     * @param {THREE.Quaternion} swing quaternion to correct. Overwritten
      */
-    applyConstraint( inQuat, outQuat ){ 
+    applyConstraint( twist, swing ){ 
         let boneDir = this._boneDir;
-        let twist = _quat3;
-        let swing = _quat4;
+
         let swingPos = _vec3_2;
         let swingCorrectedAxis = _vec3_3;
-        let twistCorrectedAxis = _vec3_3; // this is used after swingCorrectedAxis has finished
-
-        // TwistQuat = [ WR,  proj_VTwist( VRot ) ]
-        _vec3_2.set( inQuat.x, inQuat.y, inQuat.z );
-        _vec3_2.projectOnVector( boneDir );
-        twist.set( _vec3_2.x, _vec3_2.y, _vec3_2.z, inQuat.w );
-        twist.normalize();
-        
-        // SwingQuat = R*inv(T)
-        swing.copy( twist );
-        swing.invert();
-        swing.premultiply( inQuat );
-        swing.normalize();
 
         // swing bone
         swingPos.copy( boneDir );
         swingPos.applyQuaternion( swing );
 
-        // actual SWING pos constraint. Specific of each class
+        // -------- actual SWING pos constraint. Specific of each class
         this._applyConstraintSwing( swingPos );
 
         // compute corrected swing. 
@@ -695,25 +706,18 @@ class JointConstraint{
             swing.normalize();
         }
 
-
-
-        
-        // FOR SOME REASON CONSTRAINING SWING AND TWIST BREAKS THE TWISTING
-        // actual TWIST constraint
+        // -------- actual TWIST constraint
         if( this._twist ){
-            
-            let twistAngle = 2* Math.acos( twist.w ); 
-            twistCorrectedAxis.set( twist.x, twist.y, twist.z ); // in reality this is axis*sin(angle/2) but it does not have any effect here
-            if ( twistCorrectedAxis.dot( boneDir ) < 0 ){ twistAngle = ( -twistAngle ) + Math.PI * 2; } // correct angle value as acos only returns 0-180
-
+            let twistAngle = Math.min( 1, Math.max(-1, twist.w ) );
+            _vec3_3.set( twist.x,twist.y,twist.z)
+            if ( _vec3_3.dot( boneDir ) < 0 ){
+                twistAngle = -twistAngle; // quat == -quat
+            }
+            twistAngle = Math.min(Math.PI*2, Math.max( 0, 2 * Math.acos( twistAngle ) ) ); 
             twistAngle = _constraintAngle( twistAngle, this._twist[0], this._twist[1] );            
             twist.setFromAxisAngle( boneDir, twistAngle );
         }
 
-        // result
-        outQuat.copy(twist);
-        outQuat.premultiply(swing);
-        
     }
 }
 
