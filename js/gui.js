@@ -70,6 +70,11 @@ class GUI {
             widgets.addCheckbox("Show skeleton", this.editor.currentModel.ikHelper.visible, {callback: v => {
                 this.editor.currentModel.ikHelper.setVisibility(v);
             }})
+
+            widgets.addNumber("Helper size", this.editor.currentModel.ikHelper.visualisationScale, {callback: v => {
+                this.editor.currentModel.ikHelper.setVisualisationScale(v);
+            }});
+
             //Solver Selector
             widgets.addSection("Solver", { pretitle: makePretitle('gizmo') });
             widgets.addCombo("Solver",  this.editor.solver, { values : this.editor.solvers, callback: (v) => {

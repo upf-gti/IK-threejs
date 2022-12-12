@@ -1,6 +1,7 @@
 # IKSolver - ThreeJs
-Inverse Kinematics Solvers implemented with FABRIK and CCD Algorithms for ThreeJs
+Inverse Kinematics Solvers implemented with [CCD](https://sites.google.com/site/auraliusproject/ccd-algorithm) and [FABRIK](https://www.researchgate.net/publication/271771862_Extending_FABRIK_with_model_constraints) algorithms for [ThreeJs](https://threejs.org/)
 
+See [IKHelper](./IKHelper.md) to visualise information associated with an instance of an IKSolver
 
 ```javascript
 import { FABRIKSolver, CCDIKSolver } from "IKSolver.js"
@@ -62,9 +63,9 @@ There are two algorithms implemented, with their own class. Nonetheless, both us
 
 ## JOINTTYPES
 Enumeration of types
-- OMNI: 0
-- HINGE: 1
-- BALLSOCKET: 2
+- ```OMNI```: 0
+- ```HINGE```: 1
+- ```BALLSOCKET```: 2
 
 Can be accessed from both classes as 
 - ```FABRIKSolver.JOINTTYPES``` 

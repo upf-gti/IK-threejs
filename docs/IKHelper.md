@@ -1,5 +1,5 @@
-# IKSolver - ThreeJs
-Inverse Kinematics Solvers implemented with FABRIK and CCD Algorithms for ThreeJs
+# IKHelper - ThreeJs
+Shows the skeleton, joints and constraints associated to them in an instance of an [IKSolver](./IKSolver.md).
 
 
 ```javascript
@@ -8,7 +8,7 @@ import { IKHelper } from "IKHelper.js"
 let scene = new THREE.Scene();
 // ... scene setup ...
 
-let ikSolver = new FABRIKSolver( skeleton );
+let ikSolver = new FABRIKSolver( skeleton ); // could be CCDIKSoler also
 
 let ikHelper = new IKHelper();
 ikHelper.begin( ikSolver, scene );
@@ -28,12 +28,14 @@ ikHelper.dispose();
 
 ## VISIBILITYFLAGS
 Enumeration of types
-- NONE : 0x00,
-- ALL : 0xff,
-- SKELETON : 0x01,
-- BONEPOINTS : 0X02,
-- CONSTRAINTS : 0X04,
+- ```NONE``` : 0x00,
+- ```ALL``` : 0xff,
+- ```SKELETON``` : 0x01,
+- ```BONEPOINTS``` : 0x02,
+- ```CONSTRAINTS``` : 0x04,
 
+Can be accessed from IKHelper class as 
+- ```IKHelper.VISIBILITYFLAGS``` 
 
 # Methods
 
@@ -51,7 +53,7 @@ WARNING: call dispose when finished using this instance
 ---
 ## dispose ()
 
-Frees al gpu memory and detaches internal objects from the Threejs scen
+Frees al gpu memory and detaches internal objects from the Threejs scene
 
 ---
 ## update()
@@ -68,10 +70,16 @@ Show/Hides elements (if enabled)
 ---
 ## setVisibilityFlags( flags )
 
-Sets which elements will be visible (when enabled by setVisibility)
+Sets which elements will be visible (when enabled by ```setVisibility```). 
 
-- flags : (integer) Bitwise value that encodes which elements will be visible. Use VISIBILITYFLAGS to select which to enable
+- flags : (integer) Value that encodes which elements will be visible. Use [VISIBILITYFLAGS](#visibilityflags) to select which to enable. Use bitwise operations to stack multiple flags
+```javascript
+let flags = IKHelper.VISIBILITYFLAGS;
 
+ikHelper.setVisibilityFlags( flags.CONSTRAINTS | flags.SKELETON ); //only constraints and bone lines will be visible
+
+ikHelper.setVisibilityFlags( flags.BONEPOINTS ); //only joint points will be shown
+```
 ---
 ## setVisualisationScale( v )
 

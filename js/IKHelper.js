@@ -91,7 +91,9 @@ class IKHelper {
 
     dispose(){
         if( this.skeletonHelper ){ 
-            this.skeletonHelper.dispose();
+            if ( this.skeletonHelper.dispose ){
+                this.skeletonHelper.dispose();
+            }
             this.scene.remove(this.skeletonHelper);
         }
         if ( this.bonePoints ){
