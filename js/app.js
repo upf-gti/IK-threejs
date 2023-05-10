@@ -341,6 +341,12 @@ class App {
         }
     }
 
+    updateChain(chain) {
+        let character = this.currentModel;
+        character.CCDIKSolver.updateChain(chain.name, chain);
+        character.FABRIKSolver.updateChain(chain.name, chain);
+    }
+
     removeChain(chainName, callback = null) {
         let character = this.currentModel;
         

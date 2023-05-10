@@ -193,6 +193,7 @@ class BaseSolver {
         chainInfo.constraints = constraints;
         chainInfo.target = targetObj;
         chainInfo.enabler = true;
+        chainInfo.lookAt = false;
         // add to list
         this.chains.push( chainInfo );
         this._dispatchEvent( "onCreateChain", chainInfo );
@@ -375,6 +376,21 @@ class BaseSolver {
         bone.quaternion.multiplyQuaternions( swing, twist );
         bone.quaternion.multiply( bindRot );
     }
+
+    /**
+     * Update chain info
+     * @param {string} name 
+     * @param {object} chain 
+     */
+    updateChain( name, chain ){
+        for (let i = 0; i< this.chains.length; ++i){
+            if ( this.chains[i].name === name ){ 
+                this.chains[i].name = chain.name; 
+                this.chains[i].bones = chain.bones; 
+                this.chains[i].lookAt = chain.lookAt; 
+            }
+        }
+    }
         
 }
 BaseSolver.JOINTTYPES = { OMNI: 0, HINGE: 1, BALLSOCKET: 2 }; // omni is just the default not constrained joint
@@ -432,7 +448,15 @@ class FABRIKSolver extends BaseSolver {
                     currTargetPoint.add( tp );
                 }
                 targetPositions[ chain[chain.length-1] ].copy( currTargetPoint );
+                
+                if(chainInfo.lookAt) {
 
+                    let pos = new THREE.Vector3();
+                    targetObj.getWorldPosition( pos );
+    
+                    if(pos.distanceTo( bones[ chain[0] ].getWorldPosition(new THREE.Vector3()))> 0.15)
+                       bones[ chain[0] ].lookAt(pos.x, pos.y, pos.z)
+                }
 
                 // forward - move points back to skeleton
                 currTargetPoint = positions[ chain[ chain.length -1 ] ].clone();

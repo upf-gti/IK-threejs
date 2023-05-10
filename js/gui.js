@@ -154,6 +154,13 @@ class GUI {
                                 widgets.addButton(null, "Add constraint", { callback: v => {
                                     this.createConstraintDialog(chain.name, j, bones[chain.bones[j]].name, widgets.refresh.bind(widgets));
                                 }})
+                            } 
+                            else {
+                                widgets.addCheckbox("Look at target", chain.lookAt, { callback: v => {
+                                    chain.lookAt = v;
+                                    this.editor.updateChain(chain);
+                                    widgets.refresh();
+                                }});
                             }
                         }
                         widgets.addSeparator();    
