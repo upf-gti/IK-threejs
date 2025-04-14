@@ -101,11 +101,11 @@ class App {
     initLights() {
         // lights
         
-        // Luz ambiental suave
+        // smooth ambient light
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
         this.scene.add(ambientLight);
 
-        // Luz direccional frontal (como luz principal de estudio)
+        // front direct light (main studio light)
         const keyLight = new THREE.DirectionalLight(0xffffff, 1);
         keyLight.position.set(5, 10, 5);
         keyLight.castShadow = true;
@@ -113,12 +113,12 @@ class App {
         keyLight.shadow.mapSize.height = 2048;
         this.scene.add(keyLight);
 
-        // Luz de relleno (más suave, desde otro ángulo)
+        // fill light (smoother, different angle)
         const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
         fillLight.position.set(-5, 5, 5);
         this.scene.add(fillLight);
 
-        // Luz trasera para recorte del personaje
+        // back light
         const backLight = new THREE.DirectionalLight(0xffffff, 0.6);
         backLight.position.set(0, 5, -5);
         this.scene.add(backLight);
