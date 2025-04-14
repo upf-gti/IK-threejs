@@ -47,11 +47,20 @@ class IKHelper {
         this.skeletonHelper.frustumCulled = false;
         this.scene.add(this.skeletonHelper);
         
+        //Change skeleton helper lines colors
+        let colorArray = this.skeletonHelper.geometry.attributes.color.array;
+        for(let i = 0; i < colorArray.length; i+=6) { 
+            colorArray[i+3] = 0/250;//58/256; 
+            colorArray[i+4] = 94/256;//161/256; 
+            colorArray[i+5] = 166/256;//156/256;
+        }
+        this.skeletonHelper.geometry.attributes.color.array = colorArray;
+        this.skeletonHelper.material.linewidth = 4;
         
         // point cloud for bones
         const pointsShaderMaterial = new THREE.ShaderMaterial( {
             uniforms: {
-                color: { value: new THREE.Color( 0xfffff ) },
+                color: { value: new THREE.Color( "#0291ff" ) },
                 pointTexture: { value: new THREE.TextureLoader().load( 'data/imgs/disc.png' ) },
                 alphaTest: { value: 0.9 }
             },
@@ -360,29 +369,46 @@ const ShaderChunk = {
 
 	Point: {
 		vertexshader: `
+
 			attribute float size;
 			attribute vec3 color;
+
 			varying vec3 vColor;
+
 			void main() {
+
 				vColor = color;
+
 				vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+
 				gl_PointSize = size * ( 300.0 / -mvPosition.z );
+
 				gl_Position = projectionMatrix * mvPosition;
+
 			}
+
 		`,
 
 		fragmentshader: `
+
 			uniform vec3 color;
 			uniform sampler2D pointTexture;
 			uniform float alphaTest;
+
 			varying vec3 vColor;
+
 			void main() {
-				gl_FragColor = vec4(vColor, 1.0 );
+
+				gl_FragColor = vec4( color * vColor, 1.0 );
+
 				gl_FragColor = gl_FragColor * texture2D( pointTexture, gl_PointCoord );
+
 				if ( gl_FragColor.a < alphaTest ) discard;
+
 			}
+
 		`
-	}
+    }
 
 };
 

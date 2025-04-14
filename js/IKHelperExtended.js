@@ -90,8 +90,8 @@ class IKHelperExtended extends IKHelper {
         const geometry = this.bonePoints.geometry;
         const positionAttribute = geometry.getAttribute( 'position' );
         const colors = [];
-        const color = new THREE.Color(0.23, 0.7, 0.65);
-        const colorSelected = new THREE.Color(0.50, 1, 0.95);
+        const color = new THREE.Color(1.0, 1.0, 1.0);
+        const colorSelected = new THREE.Color(0.9, 0.5, 0.85);
 
         for ( let i = 0, l = positionAttribute.count; i < l; i ++ ) {
             (i != this.selectedBone ? color : colorSelected).toArray( colors, i * 3 );

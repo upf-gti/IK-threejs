@@ -46,10 +46,12 @@ class App {
         this.renderer.setSize( window.innerWidth, window.innerHeight );
         this.renderer.outputEncoding = THREE.sRGBEncoding;
         this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.domElement.id = "webgl-canvas";
-        let canvasArea = document.getElementById("canvasarea");
-        canvasArea.appendChild( this.renderer.domElement );
-
+        this.renderer.domElement.setAttribute("tabIndex", 1);
+        const canvasArea = this.gui.attachCanvas(this.renderer.domElement, this);
+        canvasArea.onresize = (bounding) => this.delayedResize(bounding.width, bounding.height);
+       
         // camera
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.01, 1000);
         this.controls = new OrbitControls( this.camera, this.renderer.domElement );
@@ -59,6 +61,7 @@ class App {
         this.controls.target.set(0.0, 1.3, 0);
         this.controls.update();
 
+        this.gui.init();
         /*this.ikHelper = new IKHelperHelper();
         this.ikHelper.onSelect = (objectName) => {
             this.gui.setTextInfo(objectName);
@@ -67,36 +70,58 @@ class App {
             this.gui.setTextInfo("");
         }*/
         this.renderer.render( this.scene, this.camera );
-        
-        window.addEventListener( 'resize', this.onWindowResize.bind(this) );
-        
     }
     
     initScene() {
         
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color( 0xa0a0a0 );
-        
+        // this.scene.background = new THREE.Color( 0xa0a0a0 );
+        this.scene.background = new THREE.Color(0x1e1e1e);
         const gridHelper = new THREE.GridHelper( 10, 10 );
         gridHelper.position.set(0,0.001,0);
-        this.scene.add( gridHelper );
+        gridHelper.material.color.set(0x0000000)
+        // this.scene.add( gridHelper );
         
-        let ground = new THREE.Mesh( new THREE.PlaneGeometry( 300, 300 ), new THREE.MeshStandardMaterial( { color: 0x141414, depthWrite: true, roughness: 1, metalness: 0 } ) );
+        const groundGeo = new THREE.PlaneGeometry(10, 10);
+        const groundMat = new THREE.ShadowMaterial({ opacity: 0.2 });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
+        ground.position.y = 0;
         ground.receiveShadow = true;
-        this.scene.add( ground );
+        this.ground = ground;
+        this.scene.add(ground);
         
-        // lights
-        let hemiLight = new THREE.HemisphereLight( 0xffffff, 0xffffff, 0.3 );
-        this.scene.add( hemiLight );
-
-        let dirLight = new THREE.DirectionalLight ( 0xffffff, 0.5 );
-        dirLight.position.set( 3,5,3 );
-        this.scene.add( dirLight );
+        this.initLights();
 
         //load models and add them to the scene
         this.initCharacter();
 
+    }
+
+    initLights() {
+        // lights
+        
+        // Luz ambiental suave
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+        this.scene.add(ambientLight);
+
+        // Luz direccional frontal (como luz principal de estudio)
+        const keyLight = new THREE.DirectionalLight(0xffffff, 1);
+        keyLight.position.set(5, 10, 5);
+        keyLight.castShadow = true;
+        keyLight.shadow.mapSize.width = 2048;
+        keyLight.shadow.mapSize.height = 2048;
+        this.scene.add(keyLight);
+
+        // Luz de relleno (más suave, desde otro ángulo)
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
+        fillLight.position.set(-5, 5, 5);
+        this.scene.add(fillLight);
+
+        // Luz trasera para recorte del personaje
+        const backLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        backLight.position.set(0, 5, -5);
+        this.scene.add(backLight);
     }
 
     initCharacter() {     
@@ -171,18 +196,20 @@ class App {
             // character.skeletonHelper.visible = this.currentModel.name == character.name;
             // this.scene.add(character.skeletonHelper);
             
-            this.addChain(character, {name:"Arm", origin: character.bonesIdxs["LeftArm"], endEffector: character.bonesIdxs["LeftHand"]}, null, new THREE.Vector3(1,1,0));
 
+            this.addChain(character, {name:"Arm", origin: character.bonesIdxs["LeftArm"], endEffector: character.bonesIdxs["LeftHand"]}, null, new THREE.Vector3(1,1,0));
             if ( callback ){ 
                 callback(character); 
             }
+
 
         }
 
         function loadfinished(character) {
           
             window.addEventListener("keydown", this.onKeyDown.bind(this));
-            
+            this.changeCurrentModel("LowPoly");
+
             this.initGUI();
             this.animate();
 
@@ -452,12 +479,29 @@ class App {
         this.currentModel.CCDIKSolver.setIterations( it );
     }
 
-    onWindowResize() {
-
-        this.camera.aspect = window.innerWidth / window.innerHeight;
+    resize( width = this.gui.canvasArea.root.clientWidth, height = this.gui.canvasArea.root.clientHeight ) {
+        
+        const aspect = width / height;
+        this.camera.aspect = aspect;
         this.camera.updateProjectionMatrix();
+        this.renderer.setSize(width, height); // SLOW AND MIGHT CRASH THE APP
 
-        this.renderer.setSize( window.innerWidth, window.innerHeight );
+        this.gui.resize(width, height);
+    }
+
+    // Waits until delayedResizeTime to actually resize webGL. New calls reset timeout. To avoid slow resizing and crashes.
+    delayedResize( width = this.gui.canvasArea.root.clientWidth, height = this.gui.canvasArea.root.clientHeight ) {
+        if ( this.delayedResizeID ) {
+            clearTimeout(this.delayedResizeID); this.delayedResizeID = null;
+        }
+        this.delayedResizeID = setTimeout( () => { this.delayedResizeID = null; this.resize(width, height); }, this.delayedResizeTime );
+
+        this.renderer.domElement.style.width = width + "px";
+        this.renderer.domElement.style.height = height + "px";
+        const aspect = width / height;
+        this.camera.aspect = aspect;
+        this.camera.updateProjectionMatrix();
+        this.gui.resize(width, height);
     }
 
 }
