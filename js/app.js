@@ -127,11 +127,11 @@ class App {
         // lights
         
         // smooth ambient light
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
         this.scene.add(ambientLight);
 
         // front direct light (main studio light)
-        const keyLight = new THREE.DirectionalLight(0xffffff, 1);
+        const keyLight = new THREE.DirectionalLight(0xffffff, 0.7);
         keyLight.position.set(5, 10, 5);
         keyLight.castShadow = true;
         keyLight.shadow.mapSize.width = 2048;
@@ -139,12 +139,12 @@ class App {
         this.scene.add(keyLight);
 
         // fill light (smoother, different angle)
-        const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
         fillLight.position.set(-5, 5, 5);
         this.scene.add(fillLight);
 
         // back light
-        const backLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        const backLight = new THREE.DirectionalLight(0xffffff, 0.5);
         backLight.position.set(0, 5, -5);
         this.scene.add(backLight);
     }
