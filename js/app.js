@@ -49,8 +49,6 @@ class App {
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.domElement.id = "webgl-canvas";
         this.renderer.domElement.setAttribute("tabIndex", 1);
-        const canvasArea = this.gui.attachCanvas(this.renderer.domElement, this);
-        canvasArea.onresize = (bounding) => this.delayedResize(bounding.width, bounding.height);
        
         // camera
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.01, 1000);
@@ -62,6 +60,13 @@ class App {
         this.controls.update();
 
         this.gui.init();
+
+        const canvasArea = this.gui.attachCanvas(this.renderer.domElement, this);
+        canvasArea.onresize = (bounding) => this.delayedResize(bounding.width, bounding.height);
+        window.onresize = (e) => { this.delayedResize() }
+
+        this.delayedResize();
+
         /*this.ikHelper = new IKHelperHelper();
         this.ikHelper.onSelect = (objectName) => {
             this.gui.setTextInfo(objectName);

@@ -9,18 +9,15 @@ class GUI {
         this.editor = editor;
         this.boneProperties = {};
         this.textInfo = document.getElementById("info");
-        this.init();
     }
 
     init() {
          
         // Create main area
         this.mainArea = LX.init();
-        [this.canvasArea, this.sidePanelArea] = this.mainArea.split({sizes: ["80%", "auto"]}); 
-        this.mainArea.onresize = window.onresize;
+        [this.canvasArea, this.sidePanelArea] = this.mainArea.split({sizes: ["80%", "20%"]});
 
         this.createSidePanel();
-       
     }
 
     createSidePanel() {
@@ -255,7 +252,7 @@ class GUI {
 
         this.canvasArea.root.id = "canvasarea";
         this.canvasArea.attach( element );
-        const area = new LX.Area();
+
         const canvasButtons = [
             {
                 name: 'Ground',
@@ -283,7 +280,9 @@ class GUI {
             }
     
         ]
-        // this.canvasArea.addOverlayButtons(canvasButtons, { float: "htc" } );
+
+        this.canvasArea.addOverlayButtons(canvasButtons, { float: "htc" } );
+
         return this.canvasArea;
     }
 
