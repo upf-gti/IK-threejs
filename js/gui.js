@@ -43,24 +43,19 @@ class GUI {
 
         // Editor widgets 
         const widgets = this.sidePanel;
-
-        const makePretitle = (src) => { return "<img src='data/imgs/mini-icon-"+src+".png' style='margin-right: 4px;margin-top: 6px;'>"; }
         
         widgets.on_refresh = () => {
             
             widgets.clear();
             widgets.widgets_per_row = 1;
             //Character Selector
-            widgets.branch("Character", { pretitle: makePretitle('stickman') });
+            widgets.branch("Character", { icon: "fa-solid fa-person" });
             widgets.addSelect("Model", this.editor.modelsNames, this.editor.currentModel.name, (v) => {
                 this.editor.changeCurrentModel(v);
                 widgets.on_refresh();
             });
 
             if(this.editor.currentModel.ikHelper) {
-                widgets.addCheckbox("Show skeleton", this.editor.currentModel.ikHelper.visible, v => {
-                    this.editor.currentModel.ikHelper.setVisibility(v);
-                })
     
                 widgets.addNumber("Helper size", this.editor.currentModel.ikHelper.visualisationScale, v => {
                     this.editor.currentModel.ikHelper.setVisualisationScale(v);
@@ -68,14 +63,14 @@ class GUI {
             }
 
             //Solver Selector
-            widgets.branch("Solver", { pretitle: makePretitle('gizmo') });
+            widgets.branch("Solver", { icon: "fa-brands fa-odnoklassniki" });
             widgets.addSelect("Solver", this.editor.solvers, this.editor.solver, (v) => {
                 this.editor.solver = v;
                 widgets.on_refresh();
             });
 
             //Chains
-            widgets.branch("Chains", {});
+            widgets.branch("Chains", { icon: "fa-solid fa-circle-nodes",});
             /*----------------------------------------------- IK Solver Inspector -----------------------------------------------*/
             let chains = this.editor.currentModel.chains;
             let names = Object.keys(chains);
@@ -167,7 +162,8 @@ class GUI {
                         this.editor.removeChain(chain.name);
                         widgets.on_refresh();
                     })
-                    //rBtn.getElementsByTagName("button")[0].style["background-color"] =  "indianred";
+                    rBtn.root.getElementsByTagName("button")[0].classList.add("selected");
+                    rBtn.root.getElementsByTagName("button")[0].style.background =  "indianred";
                     widgets.addSeparator();
                 }
             
@@ -238,7 +234,7 @@ class GUI {
                 this.editor.addChain(this.editor.currentModel, newChain, widgets.on_refresh.bind(widgets) );
                 
             }, {id: "chain-btn"})
-            btn.root.getElementsByTagName("button")[0].style.background =  "cadetblue";
+            btn.root.getElementsByTagName("button")[0].classList.add("selected");// =  "cadetblue";
         }
         widgets.on_refresh(options);
         
@@ -255,13 +251,14 @@ class GUI {
 
         const canvasButtons = [
             {
-                name: 'Ground',
-                property: 'showGround',
+                name: 'Grid',
+                property: 'showGrid',
                 icon: 'fa-solid fa-table-cells',
                 selectable: true,
                 selected: true,
                 callback: (v, e) => {
-                    app.ground.visible = !app.ground.visible;
+                    app.grid.visible = !app.grid.visible;
+                    app.orientationHelper.visible = !app.orientationHelper.visible; 
                 }
             },
             {
@@ -277,6 +274,12 @@ class GUI {
                     app.currentModel.ikHelper.visible = !app.currentModel.ikHelper.visible;
                     app.currentModel.ikHelper.setVisibility(app.currentModel.ikHelper.visible);
                 }
+            },
+            {
+                title: "Change Theme",
+                icon: "fa-solid fa-sun",
+                swap: "fa-solid fa-moon",
+                callback:  (swapValue) => { LX.setTheme( swapValue ? "light" : "dark" ) }
             }
     
         ]

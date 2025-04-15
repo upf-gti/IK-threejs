@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/controls/OrbitControls.js';
-import { TransformControls } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/controls/TransformControls.js';
-import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { ViewHelper } from 'three/addons/helpers/ViewHelper.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 //import { CCDIKSolver } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/animation/CCDIKSolver.js';
 import { FABRIKSolver, CCDIKSolver } from './IKSolver.js'
 import { GUI } from './gui.js'
@@ -46,6 +47,7 @@ class App {
         this.renderer.setSize( window.innerWidth, window.innerHeight );
         this.renderer.outputEncoding = THREE.sRGBEncoding;
         this.renderer.shadowMap.enabled = true;
+        this.renderer.autoClear = false;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.domElement.id = "webgl-canvas";
         this.renderer.domElement.setAttribute("tabIndex", 1);
@@ -53,15 +55,31 @@ class App {
         // camera
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.01, 1000);
         this.controls = new OrbitControls( this.camera, this.renderer.domElement );
-        this.controls.object.position.set(0.0, 1.5, 1);
+        this.controls.object.position.set(0, 1.2, 1);
         this.controls.minDistance = 0.1;
         this.controls.maxDistance = 7;
-        this.controls.target.set(0.0, 1.3, 0);
+        this.controls.target.set(0.2, 1, 0);
         this.controls.update();
 
-        this.gui.init();
+        // helper
+        const orientationHelper = this.orientationHelper = new ViewHelper( this.camera, this.renderer.domElement );
+        orientationHelper.controls = this.controls;
+        orientationHelper.controls.center = this.controls.target;
+        orientationHelper.visible = this.grid.visible;
 
+        const div = document.createElement( 'div' );
+        div.id = 'orientationHelper';
+        div.style.position = 'absolute';
+        div.style.right = 0;
+        div.style.bottom = 0;
+        div.style.height = '128px';
+        div.style.width = '128px';
+        div.addEventListener( 'pointerup', (event) => this.orientationHelper.handleClick( event ) );
+
+        this.gui.init();
+        
         const canvasArea = this.gui.attachCanvas(this.renderer.domElement, this);
+        canvasArea.root.appendChild(div);
         canvasArea.onresize = (bounding) => this.delayedResize(bounding.width, bounding.height);
         window.onresize = (e) => { this.delayedResize() }
 
@@ -82,10 +100,12 @@ class App {
         this.scene = new THREE.Scene();
         // this.scene.background = new THREE.Color( 0xa0a0a0 );
         this.scene.background = new THREE.Color(0x1e1e1e);
-        const gridHelper = new THREE.GridHelper( 10, 10 );
+        const gridHelper = new THREE.GridHelper( 5, 5 );
         gridHelper.position.set(0,0.001,0);
-        gridHelper.material.color.set(0x0000000)
-        // this.scene.add( gridHelper );
+        gridHelper.material.color.set( 0x1e1e1e);
+        gridHelper.material.opacity = 0.2;
+        this.grid = gridHelper;
+        this.scene.add( gridHelper );
         
         const groundGeo = new THREE.PlaneGeometry(10, 10);
         const groundMat = new THREE.ShadowMaterial({ opacity: 0.2 });
@@ -235,6 +255,15 @@ class App {
 
     changeCurrentModel(name) {
 
+        if(name == "LowPoly") {
+            this.controls.object.position.set(0, 1.2, 1);
+            this.controls.target.set(0.2, 1, 0);
+        }
+        else {
+            this.controls.object.position.set(0, 1.5, 1.2);
+            this.controls.target.set(0.2, 1.2, 0);
+        }
+        this.controls.update();
         this.currentModel.setVisibility(false, this.updateAttachedControls.bind(this));
    
         for(let i in this.models) {
@@ -458,7 +487,14 @@ class App {
         }
                 
         this.currentModel.ikHelper.update(true, et);
+        if ( this.orientationHelper.animating ) {
+            this.orientationHelper.update( delta );
+        }
+        this.renderer.clear();
         this.renderer.render( this.scene, this.camera );
+        if(this.orientationHelper.visible) {
+            this.orientationHelper.render( this.renderer );
+        }
     }
     
     onKeyDown ( e ){

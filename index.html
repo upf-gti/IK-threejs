@@ -1,38 +1,61 @@
 <html>
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link rel="icon" type="image/x-icon" href="data/imgs/logo_SignON.png">
-        <!-- <link  rel="stylesheet" href="./css/litegui.css"> -->
+        <link rel="icon" type="image/x-icon" href="">
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.skypack.dev/lexgui@^0.5.6/build/lexgui.css">
         <style>
             html, body { width:100%; height:100%; margin:0; padding:0; overflow:hidden; }
+            .modal {
+                background-color:rgba(25, 24, 24, 1); position: absolute; width: 100%; height: 100%; 
+                display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: white; font-size: larger;
+            }
             #info {
-            position: absolute;
-            bottom: 10px;
-            width: 100%;
-            text-align: center;
-            z-index: 10000;
-            display: flex;
-            font-size: large;
-            padding: 10px;
+                /* position: absolute; */
+                bottom: 10px;
+                width: 100%;
+                text-align: center;
+                z-index: 10000;
+                display: flex;
+                font-size: large;
+                padding: 10px;
+            }
+            /* HTML: <div class="loader"></div> */
+            .loader {
+                margin: 20px;
+                width: 50px;
+                aspect-ratio: 1;
+                color: var(--global-color-accent-light);
+                --_c:no-repeat radial-gradient(farthest-side,currentColor 92%,#0000);
+                background: 
+                    var(--_c) 50% 0   /12px 12px,
+                    var(--_c) 50% 100%/12px 12px,
+                    var(--_c) 100% 50%/12px 12px,
+                    var(--_c) 0    50%/12px 12px,
+                    var(--_c) 50%  50%/12px 12px,
+                    conic-gradient(from 90deg at 4px 4px,#0000 90deg,currentColor 0)
+                    -4px -4px/calc(50% + 2px) calc(50% + 2px);
+                animation: l8 1s infinite linear;
+            }
+            @keyframes l8 {to{transform: rotate(.5turn)}
         }
         </style>
-        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-        <!-- <script src = "js/libs/litegui.js"></script> -->
-        <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.skypack.dev/lexgui@^0.5.6/build/lexgui.css">
+        
 
         <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
         <script type="importmap">
 			{
-				"imports": {
-					"three": "https://cdn.skypack.dev/three@0.136",
-                    "lexgui": "https://cdn.skypack.dev/lexgui@0.5.6/build/lexgui.module.js"
+                    "imports": {
+                        "three": "https://unpkg.com/three@0.147/build/three.module.js",
+                        "three/addons/": "https://unpkg.com/three@0.147/examples/jsm/",
+                        "lexgui": "https://cdn.skypack.dev/lexgui@0.5.7/build/lexgui.module.js"
 				}
 			}
 		</script>
     </head>
     <body>
-        <div id="loading" class="modal" style="background-color:rgba(51, 51, 51, 0.5); position: absolute; width: 100%; height: 100%; 
-                display: flex; justify-content: center; align-items: center; z-index: 100; color: white; font-size: larger;">
+        <div id="loading" class="modal">
+            <div class="loader"></div>
 			<p>Loading avatar, please wait</p>
 		</div>
         <div id="info"></div>
