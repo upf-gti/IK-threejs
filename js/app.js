@@ -26,10 +26,11 @@ class App {
         this.solver = this.solvers[1];
         
         // current model selected
-        let eva = new Character("Eva", "./data/models/Eva_Y2.glb");
-        this.modelsNames = ["Eva", "LowPoly"];
-        let lowPoly = new Character("LowPoly", "./data/models/lowPoly/woman.gltf");
-        this.models = [eva, lowPoly];
+        const eva = new Character("Eva", "./data/models/Eva_Y2.glb");
+        this.modelsNames = ["Eva", "LowPoly", "Michelle"];
+        const lowPoly = new Character("LowPoly", "./data/models/lowPoly/woman.gltf");
+        const Michelle = new Character("Michelle", "./data/models/Michelle.glb");
+        this.models = [eva, lowPoly, Michelle];
         this.currentModel = this.models[1];
 
         this.gui = new GUI(this);        
@@ -55,7 +56,7 @@ class App {
         // camera
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.01, 1000);
         this.controls = new OrbitControls( this.camera, this.renderer.domElement );
-        this.controls.object.position.set(0, 1.2, 1);
+        this.controls.object.position.set(0, 1.4, 1.7);
         this.controls.minDistance = 0.1;
         this.controls.maxDistance = 7;
         this.controls.target.set(0.2, 1, 0);
@@ -176,18 +177,15 @@ class App {
                     
             } );
                 
-            if(character.name == "Eva") {
-                //EVA
-                character.model.scale.set(0.01,0.01,0.01);
-            } else{
-                //woman.gltf
-                character.model.scale.set(0.25,0.25,0.25);
+            if(character.name == "LowPoly") {
+                //woman.glrf
+                character.model.scale.set(0.3,0.3,0.3);
             }
 
             character.model.skeleton = character.skeleton;
             character.bonesIdxs = {};
             for(let i = 0; i < character.skeleton.bones.length; i++) {
-                let name = character.skeleton.bones[i].name.replace("mixamorig_", "");
+                let name = character.skeleton.bones[i].name.replace("mixamorig", "").replaceAll("_", "");
                 if(name == "LeftUpLeg") {
                     character.bonesIdxs["LeftUpLeg"] = i;
                 }
@@ -255,15 +253,15 @@ class App {
 
     changeCurrentModel(name) {
 
-        if(name == "LowPoly") {
-            this.controls.object.position.set(0, 1.2, 1);
-            this.controls.target.set(0.2, 1, 0);
-        }
-        else {
-            this.controls.object.position.set(0, 1.5, 1.2);
-            this.controls.target.set(0.2, 1.2, 0);
-        }
-        this.controls.update();
+        // if(name == "LowPoly") {
+        //     this.controls.object.position.set(0, 1.2, 1);
+        //     this.controls.target.set(0.2, 1, 0);
+        // }
+        // else {
+        //     this.controls.object.position.set(0, 1.5, 1.2);
+        //     this.controls.target.set(0.2, 1.2, 0);
+        // }
+        // this.controls.update();
         this.currentModel.setVisibility(false, this.updateAttachedControls.bind(this));
    
         for(let i in this.models) {
