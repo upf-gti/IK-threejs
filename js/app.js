@@ -33,8 +33,8 @@ class App {
         this.models = [eva, lowPoly, Michelle];
         this.currentModel = this.models[1];
 
-        this.gui = new GUI(this);        
-    
+        this.gui = new GUI(this); 
+
     }
 
     init() {
@@ -119,9 +119,11 @@ class App {
         
         this.initLights();
 
+        this.poleTarget = new THREE.Mesh(new THREE.IcosahedronGeometry(0.1));
+        this.scene.add(this.poleTarget)
         //load models and add them to the scene
         this.initCharacter();
-
+        
     }
 
     initLights() {
@@ -205,6 +207,13 @@ class App {
                     character.bonesIdxs["LeftHand"] = i;
                 }
             }
+
+            character.skeleton.bones[character.bonesIdxs["LeftForeArm"]].getWorldPosition(this.poleTarget.position)
+            this.poleTarget.position.z -= 0.2
+            this.poleTarget.position.y -= 0.1
+            this.poleTarget.userData = {poleAngle: 0}
+            character.poleTarget = this.poleTarget;
+            
 
             //Add character to the scene and put it visible if it's the current model selected
             character.model.name = "Character_" + character.name;
@@ -321,6 +330,13 @@ class App {
                 transfControl.size = 0.6;
                 transfControl.name = "control"+ chain.name;
                 this.scene.add( transfControl );
+
+
+                let transfControl2 = new TransformControls( this.camera, this.renderer.domElement );
+                transfControl2.addEventListener( 'dragging-changed',  ( event ) => { this.controls.enabled = ! event.value; } );
+                transfControl2.attach( this.poleTarget );
+                transfControl2.size = 0.6;
+                this.scene.add( transfControl2 );
             }
             target.name = 'IKTarget' + chain.name;
         
@@ -355,7 +371,11 @@ class App {
         }
         character.chains[ikChain.name] = ikChain;
         
-        if ( !character.FABRIKSolver ){ character.FABRIKSolver = new FABRIKSolver( character.skeleton ); }
+        if ( !character.FABRIKSolver ){ 
+            character.FABRIKSolver = new FABRIKSolver( character.skeleton ); 
+            character.FABRIKSolver.setPoleTarget(character.poleTarget);
+            character.FABRIKSolver.setPoleAngle(character.poleTarget.userData.poleAngle)
+        }
         character.FABRIKSolver.createChain(ikChain.bones, ikChain.constraints, ikChain.target, ikChain.name);
 
         if ( !character.CCDIKSolver ){ character.CCDIKSolver = new CCDIKSolver( character.skeleton ); }

@@ -209,6 +209,10 @@ class GUI {
                 widgets.on_refresh();
             }});
 
+             widgets.addRange("pole Angle", 0, (value, event) => {
+                this.editor.currentModel.FABRIKSolver.poleAngle = value;
+            }, { min: -360, max: 360, step: 1, width: "100%" });
+
             if(newChain.target) {
                 widgets.sameLine(2);
                 widgets.addText("Target", newChain.target == true ? null : newChain.target, null, {  width: '80%', disabled: true});
