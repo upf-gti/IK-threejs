@@ -381,6 +381,21 @@ BaseSolver.JOINTTYPES = { OMNI: 0, HINGE: 1, BALLSOCKET: 2 }; // omni is just th
 
 
 class FABRIKSolver extends BaseSolver {
+    poleTarget = null;
+    poleAngle = 0;
+    poleRotationMatrix = new THREE.Matrix4();
+    tmpVectors = [
+        new THREE.Vector3(),
+        new THREE.Vector3(),
+        new THREE.Vector3(),
+        new THREE.Vector3(),
+    ]
+    setPoleTarget(obj){
+        this.poleTarget = obj;
+    }
+    setPoleAngle(angle){
+        this.poleAngle = angle;
+    }
     update ( ){
         let bones = this.skeleton.bones;
         let positions = this._positions;
@@ -454,6 +469,58 @@ class FABRIKSolver extends BaseSolver {
                 }  
                 targetPositions[ chain[0] ].copy( currTargetPoint );
 
+
+                //pole Target
+                if(this.poleTarget && chain.length < 4){
+                    const polePos = this.tmpVectors[0];
+                    polePos.setFromMatrixPosition(this.poleTarget.matrixWorld);
+                
+                    const midPoint = this.tmpVectors[1]
+                        .addVectors(targetPositions[ chain[0] ], targetPositions[ chain[2] ])
+                        .multiplyScalar(0.5);
+                
+                    const chainAxis = this.tmpVectors[2]
+                        .subVectors(targetPositions[ chain[2] ], targetPositions[ chain[0] ])
+                        .normalize();
+
+                    // Calculate pole direction with stability checks
+                    const poleDirection = this.tmpVectors[3]
+                        .subVectors(polePos, midPoint);
+                    
+                    // Check if pole position is too close to the chain axis (causes instability)
+                    const poleDistanceFromAxis = poleDirection.length();
+                    if (poleDistanceFromAxis < 0.001) {
+                        // Pole is too close to chain axis, skip pole constraint
+                        continue;
+                    }
+                    
+                    // Project pole direction onto plane perpendicular to chain axis
+                    const axialComponent = poleDirection.dot(chainAxis);
+                    poleDirection.addScaledVector(chainAxis, -axialComponent);
+                    
+                    // Check if projected pole direction is too small (near-perpendicular case)
+                    if (poleDirection.lengthSq() < 0.000001) {
+                        // Use a default perpendicular direction to avoid singularity
+                        poleDirection.set(0, 1, 0);
+                        if (Math.abs(chainAxis.dot(poleDirection)) > 0.9) {
+                            poleDirection.set(1, 0, 0);
+                        }
+                        poleDirection.crossVectors(poleDirection, chainAxis);
+                    }
+                    
+                    poleDirection.normalize();
+                    
+                    const projectedLength = targetPositions[ chain[1] ].distanceTo(midPoint);
+                
+                    if (this.poleAngle) {
+                        const rotationMatrix = this.poleRotationMatrix.makeRotationAxis(chainAxis, THREE.MathUtils.degToRad(this.poleAngle));
+                        poleDirection.applyMatrix4(rotationMatrix).normalize();
+                    }
+                    
+                    targetPositions[ chain[1] ].copy(
+                        midPoint.clone().add(poleDirection.multiplyScalar(projectedLength))
+                    );
+                }
 
 
                 // compute rotations
