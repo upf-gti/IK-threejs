@@ -499,9 +499,11 @@ class App {
         let it = this.currentModel.FABRIKSolver.iterations;
 
         switch( e.key ){
-            case 'a': 
-            this.currentModel.FABRIKSolver.constraintsEnabler = !this.currentModel.FABRIKSolver.constraintsEnabler; 
-            this.currentModel.CCDIKSolver.constraintsEnabler = !this.currentModel.CCDIKSolver.constraintsEnabler; 
+            case 'q':
+            if ( e.ctrlKey ){
+                this.currentModel.FABRIKSolver.constraintsEnabler = !this.currentModel.FABRIKSolver.constraintsEnabler; 
+                this.currentModel.CCDIKSolver.constraintsEnabler = !this.currentModel.CCDIKSolver.constraintsEnabler; 
+            }
             break; 
             case '1': it = 1; break;
             case '2': it = 2; break;
@@ -514,8 +516,8 @@ class App {
             case '9': it = 30; break;
         }
 
-        this.currentModel.FABRIKSolver.setIterations( it );
-        this.currentModel.CCDIKSolver.setIterations( it );
+        this.currentModel.FABRIKSolver.iterations = it;
+        this.currentModel.CCDIKSolver.iterations = it;
     }
 
     resize( width = this.gui.canvasArea.root.clientWidth, height = this.gui.canvasArea.root.clientHeight ) {

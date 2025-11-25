@@ -19,10 +19,7 @@ scene.add( target );
 let ikSolver = new FABRIKSolver( skeleton );
 //let ikSolver = new CCDIKSolver( skeleton );
 
-ikSolver.setIterations( 1 );
-ikSolver.setSquaredDistanceThreshold( 0.0001 );
-
-
+ikSolver.setConfiguration( {iterations: 1, thresholdTargetSq: 0.0001} );
 
 ikSolver.createChain(
     [5,4,3,2,1,0],
@@ -77,7 +74,7 @@ Can be accessed from both classes as
 
 ## constructor( skeleton )
 
-- skeleton : (ThreeJs skeleton).
+- ``skeleton`` : (ThreeJs skeleton).
 
 ---
 ## addEventListener( name, callback )
@@ -87,39 +84,40 @@ Adds an event callback. The allowed events are *onSetConstraint*, *onCreateChain
 *onSetConstraint* is called every time a "set constraint" method is called. Does not trigger when destroying a chain
 *onDestroyChain* only event triggered when distroying a chain. No constraint specific events are triggered.
 
-- name : (string).
-- callback : (function)
+- ``name`` : (string).
+- ``callback`` : (function)
 
 ---
-## setIterations( iterations )
+## setConfiguration( options )
 
-Sets the amount of iterations to compute during update.
+Settings of the IK. <br>
+All attributes can also be modified directly to the instance (e.g. ```ikInstance.iterations = 10```), except for ``thresholdAngle``
 
-- iterations : (int).
-
+- options
+    - ``constraintsEnabler`` : (boolean) enable/disable all constraints.
+    - ``iterations`` : (integer) maximum amount of iterations.
+    - ``thresholdTargetSq`` : (number) maximum distance where end-effector is considered to have reached the target. SQUARED Distance.
+    - ``thresholdCosAngle`` : [-1,1] minimum change of angle to be considered a movement. COS( angle ).
+    - ``thresholdAngle`` : (number) alias of ``thresholdCosAngle``, where the angle is expected instead of the Cos(Angle). ``thresholdAndle`` does not exist as a member of the class.
+    - ``thresholdIterSqDist`` : (number) maximum distance where end-effector is considered to have moved during the IK. If its movement is less than this value, the IK assumes that target is not reachable through a better pose and ends IK for that chain. SQUARED Distance.
+    
 ---
-## setSquaredDistanceThreshold( sqDist )
 
-Sets the maximum squared distance to consider a certain effector as well positioned.
-
-- sqDist : (number >= 0).
-
----
 ## createChain( newChain, newConstraints, targetObj, name )
 
 Adds a new chain to the internal list. **Chains inserted last will have higher priority.**
 
-- newChain : (array) ordered list of bone indices that constitute the chain. [ effector, parent, parent-parent, ... , root chain ]. 
-- newConstraints : (array or null) list of the same lenght as newChain containing an object for each bone in the chain with its constraints. All *null*s will be considered as unconstrained. Effector does not have constraints, meaning the first entry will be ignored
-- targetObj : (object) Target object to follow. Must either be an Object3D in the scene or an object with a 'position' property containing a Vector3
-- name : (string).
+- ``newChain`` : (array) ordered list of bone indices that constitute the chain. [ effector, parent, parent-parent, ... , root chain ]. 
+- ``newConstraints`` : (array or null) list of the same lenght as newChain containing an object for each bone in the chain with its constraints. All *null*s will be considered as unconstrained. Effector does not have constraints, meaning the first entry will be ignored
+- ``targetObj`` : (object) Target object to follow. Must either be an Object3D in the scene or an object with a 'position' property containing a Vector3
+- ``name`` : (string).
 
 ---
 ## removeChain( name )
 
 Removes the specified chain from the internal list if found.
 
-- name : (string).
+- ``name`` : (string).
 
 Returns **true** if successful, **false** otherwise.
 
@@ -133,7 +131,7 @@ Removes all chains from this solver.
 
 Searches for a chain named as name and returns its description.
 
-- name : (string).
+- ``name`` : (string).
 
 Returns an **object** if an existing chain is found, **null** otherwise.
 
@@ -142,8 +140,8 @@ Returns an **object** if an existing chain is found, **null** otherwise.
 
 Enables/Disables a chain.
 
-- name : (string).
-- isEnabled : (boolean)
+- ``name`` : (string).
+- ``isEnabled`` : (boolean)
 
 Returns **true** if successful, **false** otherwise.
 
@@ -152,16 +150,16 @@ Returns **true** if successful, **false** otherwise.
 
 Enables/Disables a all chains at once.
 
-- isEnabled : (boolean)
+- ``isEnabled`` : (boolean)
 
 ---
 ## setConstraintToBone( chainName, idxBoneInChain, newConstraint )
 
 Modifies a constraint of a bone in an existing chain.
 
-- chainName : (string) Name of chain to fetch.
-- idxBoneInChain : (int) Index in the chain array (not the actual bone number).
-- newConstraint : (object) Object with all desired attributes for that constraint. See [JOINTTYPES Member](#jointtypes) and [Constraint Types](./Constraint%20Types.md).
+- ``chainName`` : (string) Name of chain to fetch.
+- ``idxBoneInChain`` : (int) Index in the chain array (not the actual bone number).
+- ``newConstraint`` : (object) Object with all desired attributes for that constraint. See [JOINTTYPES Member](#jointtypes) and [Constraint Types](./Constraint%20Types.md).
 
 Returns **true** if successful, **false** otherwise.
 

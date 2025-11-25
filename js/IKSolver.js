@@ -66,9 +66,9 @@ class BaseSolver {
         this.chains = [];
         this.constraintsEnabler = true;
         this.iterations = 1;
-        this.sqThreshold = 0.0000001; // distance threshold to consider target as reached
-        this.cosAngleThreshold = Math.cos( 0.0001 ); // cos(angle) threshold to consider bone as "no moving required"
         this.thresholdIterSqDist = 0.0000001; // distance threshold to consider the chain has not moved in this iteration
+        this.thresholdTargetSq = 0.0000001; // distance threshold to consider target as reached
+        this.thresholdCosAngle = Math.cos( 0.0001 );  // cos(angle) threshold to consider bone as "no moving required"
 
         const numBones = this.skeleton.bones.length;
         
@@ -140,6 +140,7 @@ class BaseSolver {
     }
 
     /**
+     * TODO REMOVE
      * @param {int} iterations 
      */
     setIterations ( iterations ){
@@ -149,21 +150,35 @@ class BaseSolver {
     }
 
     /**
+     * TODO REMOVE
      * Maximum squared distance to consider a certain effector as well positioned
      * @param {number} sqDist 
      */
     setSquaredDistanceThreshold ( sqDist ){
-        if ( isNaN(sqDist) ){ this.sqThreshold = 0.001; }
-        else if ( sqDist < 0 ){ this.sqThreshold = 0.001; }
-        else{ this.sqThreshold = sqDist; }
+        if ( isNaN(sqDist) ){ this.thresholdTargetSq = 0.001; }
+        else if ( sqDist < 0 ){ this.thresholdTargetSq = 0.001; }
+        else{ this.thresholdTargetSq = sqDist; }
     }
 
     /**
-     * rotatations lower than the specified angle will be ignored
-     * @param {number} angle radians 
+     * Sets the parameters in options to the solver. Unspecified parameters are not modified
+     * Alternatively, parameters can be set directly to the class members (e.g. solver.iterations = 12), as long as they hold valid values
+     * @param {object} options 
      */
-    setAngleRotationThreshold ( angle ){
-        this.cosAngleThreshold = Math.max( -1, Math.min( 1, Math.cos( angle ) ) );
+    setConfiguration( options = {} ){
+
+        this.constraintsEnabler = options.constraintsEnabler ?? this.constraintsEnabler;
+
+        this.iterations = Math.max( 1, options.iterations ) ?? this.iterations;
+
+        this.thresholdTargetSq = options.thresholdTargetSq ?? this.thresholdTargetSq;
+        
+        this.thresholdCosAngle = options.thresholdCosAngle ?? this.thresholdCosAngle;
+        if ( options.hasOwnProperty( "thresholdAngle" ) ){
+            this.thresholdCosAngle = Math.max( -1, Math.min( 1, Math.cos( options.thresholdAngle ) ) );
+        }
+
+        this.thresholdIterSqDist = options.thresholdIterSqDist ?? this.thresholdIterSqDist;
     }
     
     /**
@@ -424,7 +439,7 @@ class FABRIKSolver extends BaseSolver {
 
                 // check if reached
                 _vec3_2.setFromMatrixPosition( bones[ chain[0] ].matrixWorld ); // avoid getWorldPosition, it will force-update every bone worldmatrix
-                if ( currTargetPoint.distanceToSquared( _vec3_2 ) <= this.sqThreshold ){ continue; }
+                if ( currTargetPoint.distanceToSquared( _vec3_2 ) <= this.thresholdTargetSq ){ continue; }
                 
                 // current pose world positions
                 for (let i = 0; i < chain.length; ++i){
@@ -496,6 +511,7 @@ class FABRIKSolver extends BaseSolver {
 
                 lastChainUpdated = chainIdx;
                 
+                // flag chain as "unchanged" if there is not enough end-effector movement
                 _vec3.setFromMatrixPosition( bones[ chain[0] ].matrixWorld );
                 if ( _vec3.sub( positions[ chain[0] ] ).lengthSq() > this.thresholdIterSqDist ){
                     chainsUpdated++; 
@@ -537,7 +553,7 @@ class FABRIKSolver extends BaseSolver {
             newVec.normalize();
             
             let dot = oldVec.dot( newVec );
-            if ( dot > this.cosAngleThreshold ){ continue; } // no rotation required
+            if ( dot > this.thresholdCosAngle ){ continue; } // no rotation required
 
             _quat.setFromUnitVectors( oldVec, newVec );
             _quat.premultiply( bones[ boneIdx ].quaternion );
@@ -586,13 +602,12 @@ class CCDIKSolver extends BaseSolver {
                 initialEffectorPosition.setFromMatrixPosition( bones[ chain[0] ].matrixWorld );
 
                 // CCD
-                let bonesUpdated = false;
                 for ( let i = 1; i < chain.length; ++i ){
                     let boneIdx = chain[i]; // parent
                     
                     // check if effector already reached target (in world space)
                     effectorLocal.setFromMatrixPosition( bones[ chain[0] ].matrixWorld );
-                    if ( targetWorld.distanceToSquared(effectorLocal) <= this.sqThreshold ){ break; }
+                    if ( targetWorld.distanceToSquared(effectorLocal) <= this.thresholdTargetSq ){ break; }
 
                     let wToL = _mat4;
                     wToL.copy( bones[ boneIdx ].matrixWorld );
@@ -608,7 +623,7 @@ class CCDIKSolver extends BaseSolver {
                     if ( targetLocal.lengthSq() < 0.00001 || effectorLocal.lengthSq() < 0.00001 ){ continue; }
 
                     let dot = effectorLocal.dot( targetLocal );
-                    if ( dot > this.cosAngleThreshold ){ continue; } // no additional rotation required
+                    if ( dot > this.thresholdCosAngle ){ continue; } // no additional rotation required
 
                     _quat.setFromUnitVectors(effectorLocal, targetLocal); 
                     _quat.premultiply( bones[ boneIdx ].quaternion );
@@ -617,11 +632,11 @@ class CCDIKSolver extends BaseSolver {
                     this._applyConstraint( chainInfo, i, _quat );
 
                     this._updateWorldMatrices( bones[ chain[0] ], bones[ boneIdx ] );
-                    bonesUpdated = true;
                 }               
                 
                 lastChainUpdated = chainIdx;
 
+                // flag chain as "unchanged" if there is not enough end-effector movement
                 _vec3_2.setFromMatrixPosition( bones[ chain[0] ].matrixWorld );
                 if ( _vec3_2.distanceToSquared( initialEffectorPosition ) > this.thresholdIterSqDist ){
                     chainsUpdated++;
