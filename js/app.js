@@ -4,10 +4,10 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { ViewHelper } from 'three/addons/helpers/ViewHelper.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 //import { CCDIKSolver } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/animation/CCDIKSolver.js';
-import { FABRIKSolver, CCDIKSolver } from './IKSolver.js'
-import { GUI } from './gui.js'
+import { FABRIKSolver, CCDIKSolver } from './IKSolver.js';
+import { GUI } from './gui.js';
 //import { IKHelper } from './IKHelper.js'
-import { IKHelperExtended } from './IKHelperExtended.js'
+import { IKHelperExtended } from './IKHelperExtended.js';
 
 class App {
 
@@ -288,11 +288,11 @@ class App {
 
     addChain(character, chain, callback = null, targetPos = new THREE.Vector3()) {
 
-        if(!chain.origin)  {
+        if(typeof(chain.origin) != 'number')  {
             console.error("No bone origin")
             return;
         }
-        if(!chain.endEffector)  {
+        if( typeof(chain.endEffector) != 'number')  {
             console.error("No bone end-effector")
             return;
         }
@@ -448,9 +448,11 @@ class App {
     }
 
     setSelectedChain(name, character = this.currentModel) {
-        character.selectedChain = name;
-        character.ikHelper.updateHelpers = true;
-        this.gui.updateSidePanel();
+        if ( name != character.selectedChain ){
+            character.selectedChain = name;
+            character.ikHelper.updateHelpers = true;
+            this.gui.updateSidePanel();
+        }
     }
 
     animate() {
@@ -501,8 +503,8 @@ class App {
         switch( e.key ){
             case 'q':
             if ( e.ctrlKey ){
-                this.currentModel.FABRIKSolver.constraintsEnabler = !this.currentModel.FABRIKSolver.constraintsEnabler; 
-                this.currentModel.CCDIKSolver.constraintsEnabler = !this.currentModel.CCDIKSolver.constraintsEnabler; 
+            this.currentModel.FABRIKSolver.constraintsEnabler = !this.currentModel.FABRIKSolver.constraintsEnabler; 
+            this.currentModel.CCDIKSolver.constraintsEnabler = !this.currentModel.CCDIKSolver.constraintsEnabler; 
             }
             break; 
             case '1': it = 1; break;
