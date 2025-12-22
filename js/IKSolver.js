@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { IKTHREE } from './Core.js';
 
 let _quat = new THREE.Quaternion(); // on update 
 
@@ -44,10 +45,10 @@ function _constraintAngle ( angle, minConstraint = 0, maxConstraint = 360 ){
 /* -------------- threejs skeleton info
 
 Skeleton class holds all the information (see pose() and update() for more visual info)
- - this.boneInverses: holds the inverse world matrices of the BIND pose
+    - this.boneInverses: holds the inverse world matrices of the BIND pose
         inv( [ParentParentParent]*[ParentParent] * [Parent] *[MyBone] )
         
-        - this.boneMatrices: holds the current world matrices of the bones in a single array (probably for streaming it directly to the gpu). Modifying it directly does not change gpu skinning (but changes skeletonHelper...)
+    - this.boneMatrices: holds the current world matrices of the bones in a single array (probably for streaming it directly to the gpu). Modifying it directly does not change gpu skinning (but changes skeletonHelper...)
     WARNING: probably they are really world matrices, as in not in local space of the model, but really scene world matrices. i.e. the object models are also applied
 
     - bone.matrixWorld: current world matrix. Modifying it directly does not change gpu skinning (but changes skeletonHelper...) Also, subsequent bones do not see the changes
@@ -58,7 +59,7 @@ Skeleton class holds all the information (see pose() and update() for more visua
     */
 
 
-    // RIGHT HANDED COORDS
+// RIGHT HANDED COORDS
 class BaseSolver {
        
     constructor ( skeleton ){
@@ -394,6 +395,7 @@ class BaseSolver {
 }
 BaseSolver.JOINTTYPES = { OMNI: 0, HINGE: 1, BALLSOCKET: 2 }; // omni is just the default not constrained joint
 
+IKTHREE.BaseSolver = BaseSolver;
 
 class FABRIKSolver extends BaseSolver {
     constructor(skeleton){
@@ -566,8 +568,9 @@ class FABRIKSolver extends BaseSolver {
         bones[ chain[0] ].updateWorldMatrix( false, false );
     }
 }
-
 FABRIKSolver.JOINTTYPES = BaseSolver.JOINTTYPES; // omni is just the default no constrained joint
+
+IKTHREE.FABRIKSolver = FABRIKSolver;
 
 class CCDIKSolver extends BaseSolver {
     update ( ){
@@ -651,6 +654,7 @@ class CCDIKSolver extends BaseSolver {
 }
 CCDIKSolver.JOINTTYPES = BaseSolver.JOINTTYPES; // omni is just the default no constrained joint
 
+IKTHREE.CCDIKSolver = CCDIKSolver;
 
 // ---------------- JOINTS ---------------- 
 /**
@@ -789,6 +793,8 @@ class JointConstraint{
     }
 }
 
+IKTHREE.JointConstraint = JointConstraint;
+
 
 /**
  * Uses spherical coordinates to handle swing constraint
@@ -866,6 +872,8 @@ class JCBallSocket extends JointConstraint {
     }
 }
 
+IKTHREE.JCBallSocket = JCBallSocket;
+
 /**
  * Simple hinge constraint
  */
@@ -923,6 +931,8 @@ class JCHinge extends JointConstraint {
         swingPos.applyAxisAngle( this._swingFront, angle );
     }
 }
+
+IKTHREE.JCHinge = JCHinge;
 
 
 export{ FABRIKSolver, CCDIKSolver };
