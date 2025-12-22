@@ -1,6 +1,6 @@
 {
     "name": "@upf-gti/ikthree",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "description": "Inverse Kinematics for Three.js",
     "type": "module",
     "main": "./build/ikthree.module.min.js",
