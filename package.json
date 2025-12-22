@@ -1,0 +1,38 @@
+{
+    "name": "@upf-gti/ikthree",
+    "version": "1.0.0",
+    "description": "Inverse Kinematics for Three.js",
+    "type": "module",
+    "main": "./build/ikthree.module.min.js",
+    "module": "./build/ikthree.module.js",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/upf-gti/IK-threejs"
+    },
+    "files": [
+        "build",
+        "LICENSE",
+        "package.json",
+        "README.md"
+    ],
+    "keywords": [
+        "inverse kinematics",
+        "ik",
+        "fabrik",
+        "ccdik",
+        "three.js"
+    ],
+    "author": "@upf-gti",
+    "license": "Apache-2.0",
+    "bugs": {
+        "url": "https://github.com/upf-gti/IK-threejs/issues"
+    },
+    "scripts": {
+        "rollup-js": "rollup -c rollup.build.config.js",
+        "build": "npm run rollup-js"
+    },
+    "dependencies": {
+        "@rollup/plugin-terser": "^0.4.4",
+        "rollup": "^4.54.0"
+    }
+}

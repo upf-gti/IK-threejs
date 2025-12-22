@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { IKTHREE } from "./Core.js";
 
 class IKHelper {
 
@@ -364,6 +365,8 @@ IKHelper.VISIBILITYFLAGS = {
     BONEPOINTS : 0X02,
     CONSTRAINTS : 0X04,
 }
+
+IKTHREE.IKHelper = IKHelper;
 
 const ShaderChunk = {
 

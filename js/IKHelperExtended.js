@@ -1,5 +1,6 @@
-import {IKHelper} from "./IKHelper.js";
 import * as THREE from "three";
+import { IKTHREE } from "./Core.js";
+import { IKHelper } from "./IKHelper.js";
 
 class IKHelperExtended extends IKHelper {
 
@@ -119,5 +120,7 @@ class IKHelperExtended extends IKHelper {
 };
 
 IKHelperExtended.VISIBILITYFLAGS = IKHelper.VISIBILITYFLAGS;
+
+IKTHREE.IKHelperExtended = IKHelperExtended;
 
 export { IKHelperExtended };
